@@ -1,4 +1,4 @@
-// The client of the PocketBase server (ACC-3, ACC-4, ACC-6, SYNC-4). `fetch` and `EventSource` are injected, so a
+// The client of the PocketBase server (ACC-3, ACC-4, ACC-6, SYNC-4, SYNC-14, SYNC-15). `fetch` and `EventSource` are injected, so a
 // test runs with no network. No SDK: the app calls the REST API of PocketBase directly.
 import { APP_SLUG } from '#config';
 import { mergeFields } from '#sync';
@@ -7,6 +7,7 @@ const USERS = '/api/collections/users';
 const ACCESS = '/api/collections/app_access/records';
 const APPS = '/api/collections/apps/records';
 const RECORDS = '/api/collections/maney_records/records';
+export const FILES = '/api/collections/maney_files/records';
 const PAGE = 200;
 
 export class PocketBaseError extends Error {
@@ -42,6 +43,9 @@ const sessionOf = ({ token, record }, approved) => ({
 
 const serverRecOf = ({ id, kind, key, data, deleted, updated }) => ({ id, kind, key, data, deleted: deleted === true, updated });
 
+const fileRecOf = ({ id, key, photo, deleted }) => ({ id, key, photo, deleted: deleted === true });
+const uploadedOf = ({ id, key, photo }) => ({ id, key, photo });
+
 // Every request for records names the owner.
 const ownedBy = (owner) => {
   if (!owner) throw new PocketBaseError('auth');
@@ -51,7 +55,8 @@ const ownedBy = (owner) => {
 export const createClient = ({ url, fetch, EventSource }) => {
   const base = url.replace(/\/+$/, '');
 
-  const call = async (method, path, { token, body, query } = {}) => {
+  // A `form` (FormData) goes as multipart: the browser sets its Content-Type with the boundary.
+  const call = async (method, path, { token, body, query, form } = {}) => {
     let response;
     try {
       response = await fetch(`${base}${path}${query ? `?${new URLSearchParams(query)}` : ''}`, {
@@ -59,9 +64,9 @@ export const createClient = ({ url, fetch, EventSource }) => {
         cache: 'no-store',
         headers: {
           ...(token ? { Authorization: token } : {}),
-          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(body === undefined || form ? {} : { 'Content-Type': 'application/json' }),
         },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: form ?? (body === undefined ? undefined : JSON.stringify(body)),
       });
     } catch {
       throw new PocketBaseError('network');
@@ -126,7 +131,54 @@ export const createClient = ({ url, fetch, EventSource }) => {
     }
   };
 
+  // The photos of `maney_files` (SYNC-14, SYNC-15).
+  const findPhoto = async (token, key, owner) => {
+    const found = await call('GET', FILES, { token, query: { filter: `${ownedBy(owner)} && key = ${quoted(key)}`, perPage: '1' } });
+    return found.items[0] ? fileRecOf(found.items[0]) : null;
+  };
+
+  const photoForm = (blob, key, fields) => {
+    const form = new FormData();
+    for (const [name, value] of Object.entries(fields)) form.append(name, value);
+    form.append('photo', blob, `${key}.jpg`);
+    return form;
+  };
+
+  const patchPhoto = async (token, id, { key, blob }) =>
+    uploadedOf(await call('PATCH', `${FILES}/${id}`, { token, form: photoForm(blob, key, { deleted: 'false' }) }));
+
   return {
+    // SYNC-14: a file that the server holds already (an answer lost on the way back, or another
+    // device) gets the photo again, and a tombstone comes back; else a new record. A duplicate
+    // create finds the record and patches it.
+    uploadPhoto: async (token, photo, owner) => {
+      const found = await findPhoto(token, photo.key, owner);
+      if (found) return patchPhoto(token, found.id, photo);
+      try {
+        return uploadedOf(await call('POST', FILES, { token, form: photoForm(photo.blob, photo.key, { owner, key: photo.key, deleted: 'false' }) }));
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        const again = await findPhoto(token, photo.key, owner);
+        if (!again) throw error;
+        return patchPhoto(token, again.id, photo);
+      }
+    },
+
+    findPhoto,
+
+    // SYNC-15: a tombstone keeps the file; null when the server has no such file.
+    deletePhoto: async (token, key, owner) => {
+      const found = await findPhoto(token, key, owner);
+      if (!found) return null;
+      return fileRecOf(await call('PATCH', `${FILES}/${found.id}`, { token, body: { deleted: true } }));
+    },
+
+    // REC-9: the bytes of a protected file need a file token, which the server gives for a short time.
+    fileToken: async (token) => (await call('POST', '/api/files/token', { token })).token,
+
+    photoUrl: ({ id, photo }, fileToken) =>
+      `${base}/api/files/maney_files/${encodeURIComponent(id)}/${encodeURIComponent(photo)}?${new URLSearchParams({ token: fileToken })}`,
+
     oauthStart: async (redirectUrl) => {
       const methods = await call('GET', `${USERS}/auth-methods`);
       const provider = methods.oauth2?.providers?.find(({ name }) => name === 'google');

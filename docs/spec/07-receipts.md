@@ -1,7 +1,7 @@
 # Receipts
 
 The receipts of the owner and the Receipts screen. Its files are `src/receipts.js`, `src/money.js`
-and `src/ui/receipts.js`. The shape follows the maney sync contract (`maney_records`, kind `receipt`).
+and `src/ui/receipts.js`; the photos are `src/photos.js`, `src/photostore.js` and `src/ui/photo.js`. The shape follows the maney sync contract (`maney_records`, kind `receipt`).
 
 ## Doc
 
@@ -33,6 +33,31 @@ and `src/ui/receipts.js`. The shape follows the maney sync contract (`maney_reco
 - **REC-6** **+** and **Add receipt** open the sheet of a new receipt; a tap on a row opens the sheet
   of that receipt. The sheet has the date (today by default), the amount (a decimal keyboard), the
   shop (at most 120 characters), the note (at most 500) and **Save**. **Save** reads the amount with
-  `parseEuros`: null shows `error.amountInvalid` under the field and saves nothing. A new receipt has
-  no photo. The sheet holds an empty photo slot, hidden. **Close**, a tap on the veil or a drag down
-  of the head closes it with no save. The amount of a receipt opens as `eurosInput` writes it.
+  `parseEuros`: null shows `error.amountInvalid` under the field and saves nothing. A new receipt
+  with no photo taken has `photo: null`. The sheet holds the photo slot (REC-7 to REC-9). **Close**,
+  a tap on the veil or a drag down of the head closes it with no save, and a photo taken in it is
+  dropped. The amount of a receipt opens as `eurosInput` writes it.
+
+## Photo
+
+- **REC-7** The photo slot of the sheet has **Take photo** (`receipts.takePhoto`), a button in front
+  of a hidden `<input type="file" accept="image/*" capture="environment">`. `scalePhoto` draws the
+  picked file, turned as its EXIF says (`imageOrientation: 'from-image'`), into a canvas of the size
+  that `fitWithin` gives: at most 1600 px on the long side (`PHOTO_MAX`), the same ratio, each side
+  at least 1 px; a smaller picture keeps its size. The canvas gives a `image/jpeg` blob of quality
+  0.8. A file that cannot be read shows `error.photoInvalid`. A new photo of an open receipt
+  replaces its photo on **Save**.
+- **REC-8** The photo waits in the sheet until **Save**. **Save** puts it in the store of pending
+  photos (the IndexedDB database `maney.photos`, object store `pending`, by the key of the photo),
+  then saves the receipt with `photo` set to the new key, `crypto.randomUUID()`. A store that
+  fails shows `error.notSaved` and saves nothing; a save that the checks refuse removes the photo
+  from the store. With no IndexedDB the store lives in memory for this start. The photo leaves the
+  store when the server took it (SYNC-14), or at the sweep of a start (SYNC-15).
+- **REC-9** A photo of the store shows from the device, through an object URL that the sheet
+  revokes when it closes, with `receipts.photoPending`. An uploaded photo shows online only: the
+  app finds its `maney_files` record and reads the bytes through a file token
+  (`POST /api/files/token`, then `/api/files/maney_files/<id>/<name>?token=`). One file token
+  serves at most 120 s. Offline, or when a request fails, the slot shows `receipts.photoOffline`.
+  The picture has the text `receipts.photo`.
+- **REC-10** **Delete all data** (SET-2) also empties the store of pending photos, before the
+  reload. A logout and a login of another user empty it too (SYNC-10).

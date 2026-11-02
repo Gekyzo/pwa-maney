@@ -67,9 +67,9 @@ test('the receipt sheet has a date, an amount with its error line, a shop of 120
   assert.match(receiptSheet, /<textarea id="receipt-note"[^>]*maxlength="500"/);
 });
 
-test('the receipt sheet has a head with its title and Close, the empty photo slot, and Save in its foot (REC-6)', () => {
+test('the receipt sheet has a head with its title and Close, the photo slot, and Save in its foot (REC-6, REC-7)', () => {
   assert.match(receiptSheet, /<header class="sheet-head"><h2 id="receipt-sheet-title" class="sheet-title main"><\/h2><button id="receipt-close" class="button tonal" type="button" data-i18n="receipts.close"><\/button><\/header>\s*<div class="sheet-body">/);
-  assert.match(receiptSheet, /<figure id="receipt-photo" class="receipt-photo" hidden><img id="receipt-photo-img" class="receipt-photo-img" alt=""><button id="receipt-photo-button" class="button tonal" type="button"><\/button><\/figure>/);
+  assert.match(receiptSheet, /<figure id="receipt-photo" class="receipt-photo" hidden><img id="receipt-photo-img" class="receipt-photo-img" data-i18n-attr="alt:receipts.photo" alt="" hidden><figcaption id="receipt-photo-note" class="input-help" hidden><\/figcaption><button id="receipt-photo-button" class="button tonal" type="button" data-i18n="receipts.takePhoto"><\/button><input id="receipt-photo-input" type="file" accept="image\/\*" capture="environment" hidden><\/figure>/);
   assert.match(receiptSheet, /<footer class="sheet-foot"><button class="button primary wide" type="submit" data-i18n="receipts.save"><\/button><\/footer>\s*<\/form>/);
 });
 

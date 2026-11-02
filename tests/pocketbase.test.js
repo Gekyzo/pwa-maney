@@ -21,7 +21,7 @@ const PENDING = { provider: 'google', state: 'S', codeVerifier: 'V' };
 const fake = (...replies) => {
   const calls = [];
   const fetch = async (url, init) => {
-    calls.push({ url: new globalThis.URL(url), method: init.method, headers: init.headers, body: init.body ? JSON.parse(init.body) : undefined });
+    calls.push({ url: new globalThis.URL(url), method: init.method, headers: init.headers, body: init.body instanceof FormData ? init.body : init.body ? JSON.parse(init.body) : undefined });
     const next = replies.shift();
     if (next instanceof Error) throw next;
     return next;
@@ -295,4 +295,83 @@ test('subscribe survives a failed subscription post (SYNC-4)', async () => {
   const client = createClient({ url: URL_, fetch: async () => { throw new Error('offline'); }, EventSource });
   client.subscribe('T', () => {});
   await sources[0].handlers.PB_CONNECT({ data: '{"clientId":"c1"}' });
+});
+
+// The photos of `maney_files` (SYNC-14).
+const fileRec = (over = {}) => ({ id: 'f1', owner: 'u1', key: 'p1', photo: 'p1_abc.jpg', deleted: false, ...over });
+const jpeg = () => new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], { type: 'image/jpeg' });
+const FILES_PATH = '/api/collections/maney_files/records';
+
+test('uploadPhoto posts multipart owner, key and photo with no Content-Type', async () => {
+  const { calls, client } = fake(page([]), reply(200, fileRec()));
+  const result = await client.uploadPhoto('T', { key: 'p1', blob: jpeg() }, 'u1');
+  assert.deepEqual(result, { id: 'f1', key: 'p1', photo: 'p1_abc.jpg' });
+  assert.equal(calls[0].method, 'GET');
+  assert.equal(calls[0].url.pathname, FILES_PATH);
+  assert.equal(calls[0].url.searchParams.get('filter'), 'owner = "u1" && key = "p1"');
+  assert.equal(calls[1].method, 'POST');
+  assert.equal(calls[1].url.pathname, FILES_PATH);
+  assert.equal(calls[1].headers.Authorization, 'T');
+  assert.equal(calls[1].headers['Content-Type'], undefined);
+  const form = calls[1].body;
+  assert.ok(form instanceof FormData);
+  assert.equal(form.get('owner'), 'u1');
+  assert.equal(form.get('key'), 'p1');
+  const photo = form.get('photo');
+  assert.ok(photo instanceof Blob);
+  assert.equal(photo.type, 'image/jpeg');
+  assert.equal(photo.size, 4);
+});
+
+test('uploadPhoto finds a file whose answer was lost and patches it', async () => {
+  const { calls, client } = fake(page([fileRec({ deleted: true })]), reply(200, fileRec()));
+  const result = await client.uploadPhoto('T', { key: 'p1', blob: jpeg() }, 'u1');
+  assert.equal(result.id, 'f1');
+  assert.deepEqual(calls.map(({ method }) => method), ['GET', 'PATCH']);
+  assert.equal(calls[1].url.pathname, `${FILES_PATH}/f1`);
+  assert.equal(calls[1].headers['Content-Type'], undefined);
+  assert.equal(calls[1].body.get('deleted'), 'false');
+  assert.equal(calls[1].body.get('photo').type, 'image/jpeg');
+});
+
+test('uploadPhoto whose post is a duplicate finds the file and patches it', async () => {
+  const dup = reply(400, { data: { key: { code: 'validation_not_unique' } } });
+  const { calls, client } = fake(page([]), dup, page([fileRec()]), reply(200, fileRec()));
+  await client.uploadPhoto('T', { key: 'p1', blob: jpeg() }, 'u1');
+  assert.deepEqual(calls.map(({ method }) => method), ['GET', 'POST', 'GET', 'PATCH']);
+  assert.equal(calls[3].body.get('deleted'), 'false');
+});
+
+test('uploadPhoto rethrows a refused photo with its field errors (SYNC-16)', async () => {
+  const { client } = fake(page([]), reply(400, { data: { photo: { code: 'validation_invalid_mime_type' } } }));
+  await assert.rejects(client.uploadPhoto('T', { key: 'p1', blob: jpeg() }, 'u1'), (error) => error.type === 'invalid' && Boolean(error.fields.photo));
+});
+
+test('fileToken posts /api/files/token and gives its token', async () => {
+  const { calls, client } = fake(reply(200, { token: 'FT' }));
+  assert.equal(await client.fileToken('T'), 'FT');
+  assert.equal(calls[0].method, 'POST');
+  assert.equal(calls[0].url.href, 'https://pb.test/api/files/token');
+  assert.equal(calls[0].headers.Authorization, 'T');
+});
+
+test('photoUrl builds /api/files/maney_files/<id>/<photo>?token=<fileToken>', () => {
+  const { client } = fake();
+  assert.equal(client.photoUrl({ id: 'f1', photo: 'p1_abc.jpg' }, 'FT'), 'https://pb.test/api/files/maney_files/f1/p1_abc.jpg?token=FT');
+});
+
+test('findPhoto and deletePhoto name the owner, and with no owner throw auth with no request', async () => {
+  const { calls, client } = fake(page([fileRec()]), page([fileRec()]), reply(200, fileRec({ deleted: true })), page([]));
+  assert.deepEqual(await client.findPhoto('T', 'p1', 'u1'), { id: 'f1', key: 'p1', photo: 'p1_abc.jpg', deleted: false });
+  assert.equal(calls[0].url.searchParams.get('filter'), 'owner = "u1" && key = "p1"');
+  assert.equal((await client.deletePhoto('T', 'p1', 'u1')).deleted, true);
+  assert.equal(calls[2].method, 'PATCH');
+  assert.equal(calls[2].url.pathname, `${FILES_PATH}/f1`);
+  assert.deepEqual(calls[2].body, { deleted: true });
+  assert.equal(await client.deletePhoto('T', 'p9', 'u1'), null);
+  const before = calls.length;
+  await assert.rejects(client.findPhoto('T', 'p1', ''), { type: 'auth' });
+  await assert.rejects(client.deletePhoto('T', 'p1', ''), { type: 'auth' });
+  await assert.rejects(client.uploadPhoto('T', { key: 'p1', blob: jpeg() }, ''), { type: 'auth' });
+  assert.equal(calls.length, before);
 });

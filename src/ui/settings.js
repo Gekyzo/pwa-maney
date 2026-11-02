@@ -81,9 +81,10 @@ export const bind = () => {
   // SET-2: the app starts again as a new install, with the walkthrough. With no storage the data is
   // only in memory, so the reload alone clears it. The session key goes too, so a signed-in device
   // opens Sign in. The sync stops first (SYNC-10): a run in progress saves nothing after the removal.
-  $('reset').addEventListener('click', () => {
+  // The photos that wait for their upload go too (REC-10).
+  $('reset').addEventListener('click', async () => {
     if (!window.confirm(t(signedIn() ? 'reset.confirmLocal' : 'reset.confirm'))) return;
-    stopSync();
+    await stopSync();
     if (storage && !resetAll(storage)) {
       showToast(t('error.resetFailed'));
       return;

@@ -150,8 +150,8 @@
      @summary The Receipts section: one centred column of receipt rows (item-row): the shop, the date below it and the amount at the end. The receipt sheet holds the photo slot.
      @part receipts-amount   The amount at the end of a row, in figures of one width.
      @part receipts-noshop   On item-row-label: the muted name of a receipt with no shop.
-     @part receipt-photo     The photo slot of the receipt sheet: the picture and its button.
-     @part receipt-photo-img The picture of the photo slot.
+     @part receipt-photo     The photo slot of the receipt sheet: the picture, its note, Take photo and the hidden camera input.
+     @part receipt-photo-img The picture of the photo slot, at most 40% of the screen height.
      @example <section class="receipts" style="width: 100%"><ul class="item-list"><li class="item-row"><div class="item-row-body"><button class="item-row-name" type="button"><span class="item-row-label">Mercadona</span><small class="item-row-meta">2 nov 2026</small></button><span class="receipts-amount">12,50 €</span></div></li><li class="item-row"><div class="item-row-body"><button class="item-row-name" type="button"><span class="item-row-label receipts-noshop">No shop</span><small class="item-row-meta">1 nov 2026</small></button><span class="receipts-amount">3,20 €</span></div></li></ul></section> */
   .receipts {
     width: 100%;
@@ -180,6 +180,8 @@
 
   .receipt-photo-img {
     max-width: 100%;
+    max-height: 40dvh;
+    object-fit: contain;
     border-radius: var(--radius-l);
   }
 

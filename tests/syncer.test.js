@@ -38,6 +38,7 @@ const fakeServer = () => {
   };
   return {
     rows,
+    files: [],
     add: (owner, { id: key, ...data }, kind = 'todo') => rows.push({ id: `pb${rows.length + 1}`, owner, kind, key, data, deleted: false, updated: stamp() }),
     // A write of the other client (maney): the fields of `patch` go into the data of the record.
     edit: (kind, key, patch) => {
@@ -55,6 +56,7 @@ const fakeClient = (server) => {
   const calls = [];
   const client = {
     calls,
+    order: [],
     pushed: [],
     bases: [],
     pushes: 0,
@@ -81,6 +83,7 @@ const fakeClient = (server) => {
     // As the real client (SYNC-4): a found record whose `updated` is not the base one gets the merge of mergeFields.
     push: async (token, change, owner, base) => {
       calls.push('push');
+      client.order.push(`push:${change.kind}:${change.key}`);
       client.pushes += 1;
       client.bases.push(base);
       const failure = client.failPush?.(client.pushes, change);
@@ -101,6 +104,26 @@ const fakeClient = (server) => {
       if (client.loseAnswer?.(client.pushes, change)) throw new PocketBaseError('network');
       return { rec: recOf(row), overruled };
     },
+    // The files of `maney_files` (SYNC-14, SYNC-15).
+    uploadPhoto: async (token, { key, blob }, owner) => {
+      client.order.push(`uploadPhoto:${key}`);
+      const failure = client.failUpload?.(key);
+      if (failure) throw failure;
+      let file = server.files.find((f) => f.owner === owner && f.key === key);
+      if (!file) {
+        file = { id: `f${server.files.length + 1}`, owner, key };
+        server.files.push(file);
+      }
+      Object.assign(file, { photo: `${key}.jpg`, blob, deleted: false });
+      return { id: file.id, key, photo: file.photo };
+    },
+    deletePhoto: async (token, key, owner) => {
+      client.order.push(`deletePhoto:${key}`);
+      const file = server.files.find((f) => f.owner === owner && f.key === key);
+      if (!file) return null;
+      file.deleted = true;
+      return { id: file.id, key, photo: file.photo, deleted: true };
+    },
     subscribe: (tokenFn, onChange, { onReconnect }) => {
       const stream = { tokenFn, onChange, onReconnect, closed: false };
       client.streams.push(stream);
@@ -112,10 +135,23 @@ const fakeClient = (server) => {
   return client;
 };
 
+// A PhotoStore backed by a Map, as the in-memory store of #photostore.
+const fakePhotos = () => {
+  const map = new Map();
+  return {
+    map,
+    put: async (key, blob) => { map.set(key, blob); },
+    get: async (key) => map.get(key) ?? null,
+    remove: async (key) => { map.delete(key); },
+    keys: async () => [...map.keys()],
+    clear: async () => { map.clear(); },
+  };
+};
+
 const START = Date.parse('2026-10-31T08:00:00Z');
 
 // A device: its storage, its doc, a clock and timers that run only when the test says so.
-const device = ({ server = fakeServer(), user = 'u1', doc = emptyDoc(), synced = true, storage: given, lost, local } = {}) => {
+const device = ({ server = fakeServer(), user = 'u1', doc = emptyDoc(), synced = true, storage: given, lost, local, photos = fakePhotos() } = {}) => {
   const storage = given ?? fakeStorage();
   if (!given) {
     saveSession(storage, sessionOf(user));
@@ -146,6 +182,7 @@ const device = ({ server = fakeServer(), user = 'u1', doc = emptyDoc(), synced =
       if (timer) timer.cleared = true;
     },
     lost,
+    photos,
   });
   // Saves a doc as the app does: it puts it in place, then tells the syncer.
   const save = (next, options) => {
@@ -153,7 +190,7 @@ const device = ({ server = fakeServer(), user = 'u1', doc = emptyDoc(), synced =
     syncer.notify(next, options);
   };
   const live = () => box.timers.filter((timer) => !timer.cleared);
-  return { storage, client, server, box, syncer, save, live };
+  return { storage, client, server, box, syncer, save, live, photos };
 };
 
 // A gate that holds a call of the client until the test opens it.
@@ -1034,4 +1071,172 @@ test('a first login with a to-do on both sides keeps the device copy and reports
   assert.deepEqual(server.rows[0].data, expected);
   assert.deepEqual(d.box.doc.todos, [{ id: 'a', ...expected }]);
   assert.deepEqual(d.box.overruled, []);
+});
+
+// Receipt photos (SYNC-14 to SYNC-16).
+const receiptOf = (id, photo = null) => ({ id, takenOn: '2026-11-02', amountCents: 999, shop: 'Eroski', note: '', photo });
+const receiptDoc = (...receipts) => normalizeDoc({ version: 1, todos: [], receipts, summary: null });
+const jpegOf = (name) => new Blob([name], { type: 'image/jpeg' });
+const offlineNow = (d) => {
+  d.client.failRefresh = new PocketBaseError('network');
+  d.client.failPush = () => new PocketBaseError('network');
+};
+const onlineNow = (d) => {
+  d.client.failRefresh = null;
+  d.client.failPush = null;
+};
+// A save of a receipt with a new photo, as the sheet does: the photo goes to the store, then the save.
+const saveWithPhoto = async (d, doc, key) => {
+  await d.photos.put(key, jpegOf(key));
+  d.save(doc);
+};
+
+test('a receipt with a pending photo uploads the file before the receipt record (SYNC-14)', async () => {
+  const d = device();
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.deepEqual(d.client.order, ['uploadPhoto:p1', 'push:receipt:r1']);
+  assert.deepEqual(await d.photos.keys(), []);
+  assert.equal(d.server.files[0].key, 'p1');
+  assert.equal(d.server.rows[0].data.photo, 'p1');
+});
+
+test('receipts captured offline reach the server in order at the online event (SYNC-14)', async () => {
+  const d = device();
+  offlineNow(d);
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  assert.equal(await d.syncer.run(), 'offline');
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1'), receiptOf('r2', 'p2')), 'p2');
+  assert.equal(await d.syncer.run(), 'offline');
+  assert.equal(storedQueue(d.storage).length, 2);
+  assert.equal((await d.photos.keys()).length, 2);
+  assert.equal(d.syncer.status().online, false);
+  assert.deepEqual(d.client.order, []);
+  onlineNow(d);
+  assert.equal(await d.syncer.online(), 'ok');
+  assert.deepEqual(d.client.order, ['uploadPhoto:p1', 'push:receipt:r1', 'uploadPhoto:p2', 'push:receipt:r2']);
+  assert.deepEqual(storedQueue(d.storage), []);
+  assert.deepEqual(await d.photos.keys(), []);
+});
+
+test('a photo upload that fails keeps the receipt queued and sends it only after the photo (SYNC-4, SYNC-14)', async () => {
+  const d = device();
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  d.client.failUpload = () => new PocketBaseError('network');
+  assert.equal(await d.syncer.run(), 'offline');
+  assert.deepEqual(d.client.order, ['uploadPhoto:p1']);
+  assert.equal(storedQueue(d.storage).length, 1);
+  assert.deepEqual(await d.photos.keys(), ['p1']);
+  d.client.failUpload = null;
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.deepEqual(d.client.order, ['uploadPhoto:p1', 'uploadPhoto:p1', 'push:receipt:r1']);
+  assert.deepEqual(storedQueue(d.storage), []);
+});
+
+test('a receipt deleted before its photo uploaded sends no file and its photo leaves at the next start (SYNC-15)', async () => {
+  const d = device();
+  offlineNow(d);
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  assert.equal(await d.syncer.run(), 'offline');
+  d.save(receiptDoc());
+  // Undo puts the receipt back in the same start.
+  d.save(receiptDoc(receiptOf('r1', 'p1')));
+  assert.deepEqual(await d.photos.keys(), ['p1']);
+  d.save(receiptDoc());
+  onlineNow(d);
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.ok(!d.client.order.some((call) => call.startsWith('uploadPhoto')));
+  assert.deepEqual(await d.photos.keys(), ['p1']);
+  const next = device({ server: d.server, storage: d.storage, photos: d.photos, doc: d.box.doc });
+  assert.equal(await next.syncer.run(), 'ok');
+  assert.deepEqual(await next.photos.keys(), []);
+  assert.deepEqual(next.client.order.filter((call) => !call.startsWith('push')), []);
+  assert.deepEqual(d.server.files, []);
+});
+
+test('a deleted receipt whose photo was uploaded tombstones the file at the next start, once (SYNC-15)', async () => {
+  const d = device();
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  assert.equal(await d.syncer.run(), 'ok');
+  d.save(receiptDoc());
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.equal(d.server.rows[0].deleted, true);
+  assert.ok(!d.client.order.includes('deletePhoto:p1'));
+  assert.equal(d.server.files[0].deleted, false);
+  const second = device({ server: d.server, storage: d.storage, photos: d.photos, doc: d.box.doc });
+  assert.equal(await second.syncer.run(), 'ok');
+  assert.deepEqual(second.client.order, ['deletePhoto:p1']);
+  assert.equal(d.server.files[0].deleted, true);
+  assert.deepEqual(storedSync(d.storage).gone, ['p1']);
+  assert.equal(await second.syncer.run(), 'ok');
+  assert.deepEqual(second.client.order, ['deletePhoto:p1']);
+  const third = device({ server: d.server, storage: d.storage, photos: d.photos, doc: d.box.doc });
+  assert.equal(await third.syncer.run(), 'ok');
+  assert.deepEqual(third.client.order, []);
+});
+
+test('a replaced photo uploads the new file before the receipt (SYNC-14, SYNC-15)', async () => {
+  const server = fakeServer();
+  server.add('u1', receiptOf('r1', 'p1'), 'receipt');
+  server.files.push({ id: 'f1', owner: 'u1', key: 'p1', photo: 'p1.jpg', deleted: false });
+  const d = device({ server });
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.equal(d.box.doc.receipts[0].photo, 'p1');
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p2')), 'p2');
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.deepEqual(d.client.order, ['uploadPhoto:p2', 'push:receipt:r1']);
+  assert.equal(server.files[0].deleted, false);
+  const next = device({ server, storage: d.storage, photos: d.photos, doc: d.box.doc });
+  assert.equal(await next.syncer.run(), 'ok');
+  assert.deepEqual(next.client.order, ['deletePhoto:p1']);
+  assert.equal(server.files[0].deleted, true);
+  assert.equal(server.files[1].deleted, false);
+  assert.deepEqual(storedSync(d.storage).gone, ['p1']);
+});
+
+test('an expired token keeps the receipts and photos, and a login sends them (SYNC-4, SYNC-14)', async () => {
+  const storage = fakeStorage();
+  const expired = `${base64url({ alg: 'none' })}.${base64url({ id: 'u1', exp: 1 })}.sig`;
+  saveSession(storage, { ...sessionOf('u1'), token: expired });
+  storage.setItem(SYNC_KEY, JSON.stringify({ owner: 'u1', cursor: '', server: [], local: [], lastSync: null }));
+  const d = device({ storage });
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  d.client.failRefresh = new PocketBaseError('network');
+  assert.equal(await d.syncer.run(), 'offline');
+  assert.equal(storedQueue(storage).length, 1);
+  assert.deepEqual(await d.photos.keys(), ['p1']);
+  assert.equal(d.syncer.status().auth, false);
+  d.client.failRefresh = new PocketBaseError('auth', 401);
+  assert.equal(await d.syncer.run(), 'auth');
+  assert.equal(d.syncer.status().auth, true);
+  assert.equal(storedQueue(storage).length, 1);
+  assert.deepEqual(await d.photos.keys(), ['p1']);
+  assert.deepEqual(d.client.order, []);
+  d.client.failRefresh = null;
+  assert.equal(await d.syncer.login(sessionOf('u1')), 'synced');
+  assert.deepEqual(d.client.order, ['uploadPhoto:p1', 'push:receipt:r1']);
+  assert.deepEqual(storedQueue(storage), []);
+  assert.deepEqual(await d.photos.keys(), []);
+});
+
+test('a photo the server refuses with field errors is dropped and the receipt goes with photo null (SYNC-16)', async () => {
+  const d = device();
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  d.client.failUpload = () => new PocketBaseError('invalid', 400, { photo: { code: 'validation_invalid_mime_type' } });
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.deepEqual(await d.photos.keys(), []);
+  assert.equal(d.client.pushed[0].data.photo, null);
+  assert.equal(d.server.rows[0].data.photo, null);
+  assert.equal(d.box.doc.receipts[0].photo, null);
+  assert.deepEqual(storedQueue(d.storage), []);
+});
+
+test('Delete all data clears the photo store (SYNC-10)', async () => {
+  const d = device();
+  offlineNow(d);
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  await d.photos.put('p9', jpegOf('p9'));
+  await d.syncer.reset();
+  assert.deepEqual(await d.photos.keys(), []);
+  assert.equal(storedSync(d.storage), null);
 });

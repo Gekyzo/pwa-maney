@@ -1,8 +1,10 @@
 // The account screens (ACC-2): Sign in, with Google or offline, and Waiting for approval, over the
 // whole app; the group Account of Settings with the last sync (ACC-8); and the sync of the receipts
 // and to-dos with the account (09-sync.md): the login, the logout, the auth stop, the offline note
-// (SYNC-11) and the toast of the fields that another device changed first (SYNC-4).
+// (SYNC-11) and the toast of the fields that another device changed first (SYNC-4); the store of the
+// photos that wait for their upload (REC-8) and the link of an uploaded photo (REC-9).
 import { createClient, PocketBaseError } from '#pocketbase';
+import { openPhotoStore } from '#photostore';
 import { createSyncer, reloadsOn, SYNC_KEY } from '#syncer';
 import { shownFields } from '#sync';
 import { loadSession, dropSession, routeAtStart, savePending, takePending, loadOffline, saveOffline, dropOffline } from '#session';
@@ -135,8 +137,19 @@ const onOverruled = (fields) => {
   showToast(t('toast.syncOverruled', { fields: shown.map((name) => t(`sync.field.${name}`)).join(', ') }));
 };
 
+// REC-8: the store opens in the background; each call waits for it. With no IndexedDB it lives in
+// memory for this start.
+const opened = (() => {
+  try {
+    return openPhotoStore(window.indexedDB);
+  } catch {
+    return openPhotoStore(null);
+  }
+})();
+export const photos = Object.fromEntries(['put', 'get', 'remove', 'keys', 'clear'].map((name) => [name, async (...args) => (await opened)[name](...args)]));
+
 // The doc that a merge gives is put in place with no save of the user (SYNC-2).
-const syncer = client ? createSyncer({ client, storage, getDoc: () => state, setDoc: replaceDoc, onStatus, onOverruled, lost: stateLost }) : null;
+const syncer = client ? createSyncer({ client, storage, getDoc: () => state, setDoc: replaceDoc, onStatus, onOverruled, lost: stateLost, photos }) : null;
 if (syncer) {
   status = syncer.status();
   setOnSave((doc, options) => syncer.notify(doc, options));
@@ -316,9 +329,24 @@ export const goVisible = () => {
 };
 
 // SYNC-10: Delete all data stops the sync before it removes the storage, so that a run in progress
-// saves nothing after the removal.
-export const stopSync = () => {
-  syncer?.reset();
+// saves nothing after the removal. The promise resolves when the photo store is empty (REC-10).
+export const stopSync = () => (syncer ? syncer.reset() : photos.clear().catch(() => {}));
+
+// REC-9: one file token serves the photos for at most 120 s.
+const FILE_TOKEN_MS = 120_000;
+let fileToken = null;
+
+// REC-9: the address of an uploaded photo, through a file token; null with no session, no file, or a
+// file tombstone. A request that fails throws.
+export const photoLink = async (key) => {
+  const session = sessionNow();
+  if (!session) return null;
+  const file = await client.findPhoto(session.token, key, session.user.id);
+  if (!file || file.deleted) return null;
+  if (!fileToken || fileToken.session !== session.token || Date.now() - fileToken.at > FILE_TOKEN_MS) {
+    fileToken = { token: await client.fileToken(session.token), session: session.token, at: Date.now() };
+  }
+  return client.photoUrl(file, fileToken.token);
 };
 
 // SYNC-12: another tab changed the doc, the sync state, the queue or the session. The sync of

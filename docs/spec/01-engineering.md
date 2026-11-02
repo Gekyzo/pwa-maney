@@ -5,7 +5,7 @@
 | Module | Responsibility | May import |
 |---|---|---|
 | `src/config.js` | The slug of the app, which `npm run init` rewrites, and the URL of the account server | nothing |
-| `src/pocketbase.js` | The client of the account server: Google sign-in, refresh, the access row (ACC-3), the records of `maney_records`: pull, push with the field-level merge, stream (SYNC-4) | `config`, `sync` |
+| `src/pocketbase.js` | The client of the account server: Google sign-in, refresh, the access row (ACC-3), the records of `maney_records`: pull, push with the field-level merge, stream (SYNC-4); the photos of `maney_files`: upload, find, tombstone, the file token and the photo address (SYNC-14, SYNC-15, REC-9) | `config`, `sync` |
 | `src/session.js` | The session on the device, the start route and the return from Google (ACC-1, ACC-4, ACC-5) | `storage` |
 | `src/version.js` | Version rules and the update offer rule | nothing |
 | `src/whatsnew.js` | The parse of the release notes and the versions that a user has not seen | `version` |
@@ -21,7 +21,9 @@
 | `src/doc.js` | The doc of to-dos, receipts and the summary, and its validation | `storage`, `todos`, `receipts`, `summary` |
 | `src/records.js` | The doc as server records, and the diff of two sets of records, with no change of the summary (SYNC-1, SYNC-13) | nothing |
 | `src/sync.js` | The queue of changes, the merge of pulled records, the check of each record by its kind and the field-level merge of a push (SYNC-4 to SYNC-7) | `records`, `todos`, `receipts`, `summary` |
-| `src/syncer.js` | The sync driver: the queue of each save, the run, the retries, the token refresh, the stream, the status and the check of a change by another tab (SYNC-2 to SYNC-4, SYNC-11, SYNC-12) | `records`, `sync`, `session`, `pocketbase`, `doc`, `storage` |
+| `src/syncer.js` | The sync driver: the queue of each save, the run, the retries, the token refresh, the stream, the status and the check of a change by another tab (SYNC-2 to SYNC-4, SYNC-11, SYNC-12); the photo before its receipt, the sweep of a start and a refused photo (SYNC-14 to SYNC-16) | `records`, `sync`, `session`, `pocketbase`, `doc`, `storage`, `photos`, `photostore` |
+| `src/photos.js` | The scale of a photo and the photos that the sweep of a start finds (REC-7, SYNC-15) | nothing |
+| `src/photostore.js` | The store of the photos that wait for their upload: IndexedDB `maney.photos`, or memory (REC-8) | `storage` |
 | `src/swipe.js` | The rule that settles the slide of a row (optional) | nothing |
 | `src/particles.js` | The particles of a picture and their place in time (optional) | nothing |
 | `src/onboarding.js` | The show rule and the page steps of the walkthrough (optional) | nothing |
@@ -33,13 +35,14 @@
 | `src/ui/nav.js` | The navigation, the change and the slide of a section | `sections`, `modules`, `ui/context`, `ui/update`, `ui/dust` |
 | `src/ui/rows.js` | The rows that slide left to show their side actions, and the close of an open row | `swipe`, `ui/context` |
 | `src/ui/todos.js` | The To-dos section, its rows and its sheet (TODO-10) | `todos`, `i18n`, `ds/sheet`, `ui/context`, `ui/controls`, `ui/rows` |
-| `src/ui/receipts.js` | The Receipts section, its rows and its sheet (REC-5, REC-6) | `receipts`, `money`, `todos`, `i18n`, `ds/sheet`, `ui/context`, `ui/controls`, `ui/rows` |
+| `src/ui/receipts.js` | The Receipts section, its rows and its sheet with its photo (REC-5 to REC-9) | `receipts`, `money`, `todos`, `i18n`, `ds/sheet`, `ui/context`, `ui/controls`, `ui/rows`, `ui/photo`, `ui/account` |
+| `src/ui/photo.js` | The scale of a photo through a canvas (REC-7) | `photos` |
 | `src/ui/summary.js` | The Summary section, read only (SUM-3) | `money`, `i18n`, `ui/context` |
 | `src/ui/settings.js` | Settings, Delete all data (SET-2, SYNC-10), the import (SYNC-9), and the text of the page in its language | `doc`, `storage`, `i18n`, `modules`, `ui/context`, `ui/update`, `ui/onboarding`, `ui/account` |
 | `src/ui/dust.js` | The dust of a navigation item (optional) | `particles`, `ui/context`, `ui/controls` |
 | `src/ui/onboarding.js` | The walkthrough (optional) | `onboarding`, `sections`, `storage`, `ui/context`, `ui/controls` |
 | `src/ui/whatsnew.js` | The release notes sheet, its Settings row and the seen version | `whatsnew`, `onboarding`, `i18n`, `storage`, `ds/sheet`, `ui/context` |
-| `src/ui/account.js` | The account screens, the group Account of Settings, and the sync of the app: the login, the logout, the auth stop, the window events, the offline note and the overruled toast (ACC-1 to ACC-12, SYNC-3, SYNC-4, SYNC-10 to SYNC-12) | `pocketbase`, `syncer`, `sync`, `session`, `config`, `i18n`, `ui/context` |
+| `src/ui/account.js` | The account screens, the group Account of Settings, and the sync of the app: the login, the logout, the auth stop, the window events, the offline note and the overruled toast (ACC-1 to ACC-12, SYNC-3, SYNC-4, SYNC-10 to SYNC-12); the photo store and the address of an uploaded photo (REC-8 to REC-10) | `pocketbase`, `syncer`, `sync`, `session`, `config`, `i18n`, `ui/context`, `photostore` |
 | `src/app.js` | Wires the views, the global keys, the service worker and the update check | all of the above |
 
 ## Code rules
@@ -76,7 +79,8 @@
 The doc key is `maney.doc` ([10-todos.md](10-todos.md)). The device preferences are `maney.lang`,
 `maney.hand`, `maney.theme`, `maney.modules` and `maney.onboarded`. The account keeps `maney.session` (ACC-5) and
 `maney.offline` (ACC-10), and `maney.oauth` in `sessionStorage` for the time of a Google redirect (ACC-4).
-The sync keeps `maney.sync` and `maney.queue` ([09-sync.md](09-sync.md)).
+The sync keeps `maney.sync` and `maney.queue` ([09-sync.md](09-sync.md)). The photos that wait for their
+upload are in the IndexedDB database `maney.photos` ([07-receipts.md](07-receipts.md), REC-8).
 
 ## Change guide
 
@@ -102,10 +106,11 @@ The sync keeps `maney.sync` and `maney.queue` ([09-sync.md](09-sync.md)).
 | `tests/receipts.test.js` | The receipt operations, their order and their validation (REC-2 to REC-4) |
 | `tests/summary.test.js` | The validation of the summary (SUM-1, SUM-2) |
 | `tests/doc.test.js` | The doc, its key and its validation (TODO-1, TODO-2, REC-1) |
-| `tests/pocketbase.test.js` | The client of the account server and its URL, the records, the push with its field-level merge and the stream (ACC-3, ACC-4, ACC-6, SYNC-4) |
+| `tests/pocketbase.test.js` | The client of the account server and its URL, the records, the push with its field-level merge and the stream (ACC-3, ACC-4, ACC-6, SYNC-4); the multipart upload, the find and the tombstone of a photo, the file token and the photo address (SYNC-14, SYNC-15) |
 | `tests/records.test.js` | The doc as records, the doc back from them and the diff, with no summary change and the photo of a receipt delete (SYNC-1, SYNC-13) |
 | `tests/sync.test.js` | The queue, the merge of pulled records, tombstones, the cursor, the check of records by kind and `mergeFields` (SYNC-4 to SYNC-7) |
-| `tests/syncer.test.js` | The sync driver: the queue of a save, the run, the stops and retries, the refresh, the merge, the field-level merge of a push, the summary, the reset, the stream and two tabs (SYNC-2 to SYNC-6, SYNC-11 to SYNC-13) |
+| `tests/syncer.test.js` | The sync driver: the queue of a save, the run, the stops and retries, the refresh, the merge, the field-level merge of a push, the summary, the reset, the stream and two tabs (SYNC-2 to SYNC-6, SYNC-11 to SYNC-13); the photo before its receipt, the sweep and a refused photo (SYNC-14 to SYNC-16) |
+| `tests/photos.test.js` | The scale of a photo, the orphan photos and the photos to tombstone (REC-7, SYNC-15) |
 | `tests/session.test.js` | The session, the start route, the offline flag, the pending sign-in and the return URL (ACC-1, ACC-4, ACC-5, ACC-10) |
 | `tests/storage.test.js` | Load, save, the corrupt copy, the lost doc, export, import and the device preferences |
 | `tests/install.test.js` | The install offer states (INS-1) |
@@ -137,7 +142,9 @@ that the input state does not change.
 
 - **ENG-9** `src/app.js`, the views of `src/ui/`, `styles.css` and `sw.js` have no unit test. A
   change to one of them is checked in a browser at 360×800, 768×1024 and 1280×800, with
-  `npm run serve`. The offline check runs with the server stopped.
+  `npm run serve`. The offline check runs with the server stopped. `src/photostore.js` (IndexedDB)
+  and `src/ui/photo.js` (the canvas) run in the browser only, so they too are checked there: a
+  photo that a reload keeps while offline, and the size and type of the uploaded file.
 - **ENG-10** `.githooks/pre-push` and `.githooks/pre-commit` have no test. They are checked in a
   scratch clone, the first one with a bare remote.
 - **ENG-11** A task is done when `npm test` passes and, for a change of the screen or of `sw.js`,

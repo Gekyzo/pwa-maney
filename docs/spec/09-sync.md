@@ -114,7 +114,41 @@ runs the sync; it takes the client, the storage, the clock and the timer as para
   the storage is removed: a run in progress becomes stale and saves nothing, the timers and the
   stream stop, and the queue is dropped. The driver sends nothing; it removes the session, the
   sync state and the queue, puts the empty doc in place, and the status starts again (online,
-  nothing pending, `reached` 0). The records of the account stay on the server.
+  nothing pending, `reached` 0). The records of the account stay on the server. The store of
+  pending photos is emptied (REC-10), and `gone` goes with the sync state.
+
+## Photos
+
+- **SYNC-14** A receipt photo is one record of `maney_files`: `owner`, `key` (the `photo` value of
+  its receipt), `photo` (the file) and `deleted`. The file goes before the receipt record that names
+  it. For each receipt upsert of the queue whose photo is in the store of pending photos (REC-8),
+  the run uploads the file first, then removes it from the store, then pushes the receipt. The
+  upload is multipart (`FormData`, no `Content-Type` of the app). It first finds the file by owner
+  and key: a found one (an answer lost on the way back, or a tombstone) is patched with the photo
+  and `deleted: false`; else it is created, and a create that the server refuses as a duplicate
+  finds the file and patches it. A failed upload stops the run as a failed push does (SYNC-4): the
+  receipt stays in the queue and the photo in the store, and the next run uploads, then pushes. An
+  auth stop keeps both until the login. A request with no owner fails with an auth error and sends
+  nothing.
+- **SYNC-15** At the first run of each start with a session, once, before the token refresh:
+  - the pending photos that no receipt of the doc and no queued receipt upsert names leave the
+    store (`orphanPhotos`), with no request: a receipt deleted before its photo uploaded sends no
+    file;
+  - the photos to tombstone are found (`gonePhotos`): the photos of the receipt tombstones of the
+    server copy, and the photos that a pushed receipt of an earlier start no longer names
+    (`dropped` in `maney.sync`, a replaced photo), less those that a receipt of the doc names and
+    those in `gone`. After the push of the queue, the run patches each of them with
+    `deleted: true` (a file that the server lacks, or a patch refused with field errors, counts as
+    done) and adds its key to `gone` in
+    `maney.sync`, so a later start sends nothing for it. A receipt that names it again is left
+    alone. A failure stops the run as a failed push does.
+
+  The sweep runs only once per start because an **Undo** of a delete (5 s, in memory) can bring a
+  receipt back within the same start; a photo of a receipt deleted in this start waits for the
+  next start.
+- **SYNC-16** A photo that the server refuses with field errors (a 400 with field errors, such as
+  a wrong type or a size above 10 MB) leaves the store and is logged, and its receipt is pushed with
+  `photo: null`. The pull of the same run puts `photo: null` in the doc.
 
 ## Status
 
@@ -146,5 +180,7 @@ runs the sync; it takes the client, the storage, the clock and the timer as para
 ## Keys
 
 - `maney.sync`: the owner, the cursor, the last server records, the base records, the time of the
-  last sync and the ids that a refused save added (SYNC-2).
+  last sync, the ids that a refused save added (SYNC-2), and the photos in `gone` and `dropped`
+  (SYNC-15).
+- `maney.photos`: the IndexedDB database of the photos that wait for their upload (REC-8).
 - `maney.queue`: the changes that the server has not taken, in order.

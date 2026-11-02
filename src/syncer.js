@@ -1,14 +1,17 @@
-// The sync driver: it queues each save, sends the queue with the field-level merge, pulls the account
+// The sync driver: it queues each save, uploads the pending photos before their receipts and sweeps
+// the photos at a start (SYNC-14 to SYNC-16), sends the queue with the field-level merge, pulls the account
 // and merges it into the doc (SYNC-2 to SYNC-9, SYNC-13), refreshes the token (SYNC-4), keeps the realtime stream (SYNC-3), runs the login
 // and the logout (ACC-11, ACC-12), stops at Delete all data (SYNC-10) and when another tab changes the
-// stored state (SYNC-12), and reports the status (SYNC-11). The client, the storage, the clock and the
-// timer are injected, so a test runs with no network.
+// stored state (SYNC-12), and reports the status (SYNC-11). The client, the storage, the photo store,
+// the clock and the timer are injected, so a test runs with no network.
 import { toRecords, fromRecords, diffRecords, sameRecords, recordKey } from '#records';
 import { enqueue, mergePulled, validRecords, cursorOf } from '#sync';
 import { loadSession, saveSession, SESSION_KEY } from '#session';
 import { PocketBaseError } from '#pocketbase';
 import { normalizeDoc, emptyDoc, DOC_KEY } from '#doc';
 import { keyOf } from '#storage';
+import { orphanPhotos, gonePhotos } from '#photos';
+import { memoryPhotoStore } from '#photostore';
 
 export const SYNC_KEY = keyOf('sync');
 export const QUEUE_KEY = keyOf('queue');
@@ -34,7 +37,11 @@ const tokenExpired = (token, now) => {
 };
 
 // `added`: the ids that saves added while the SYNC-2 guard refused their deletes, until a merge.
-const emptySync = () => ({ owner: null, cursor: '', server: new Map(), local: new Map(), lastSync: null, added: [] });
+// `gone`: the photos that the sync tombstoned; `dropped`: the photos that a pushed receipt no longer
+// names, until their tombstone (SYNC-15).
+const emptySync = () => ({ owner: null, cursor: '', server: new Map(), local: new Map(), lastSync: null, added: [], gone: [], dropped: [] });
+
+const texts = (value) => (Array.isArray(value) ? value.filter((item) => typeof item === 'string') : []);
 
 const isEntries = (value) => Array.isArray(value) && value.every((entry) => Array.isArray(entry) && entry.length === 2);
 
@@ -44,7 +51,7 @@ const loadSync = (storage) => {
     const valid = data && (data.owner === null || typeof data.owner === 'string') && typeof data.cursor === 'string' && isEntries(data.server) && isEntries(data.local);
     if (!valid) return emptySync();
     return { owner: data.owner, cursor: data.cursor, server: new Map(data.server), local: new Map(data.local), lastSync: typeof data.lastSync === 'string' ? data.lastSync : null,
-      added: Array.isArray(data.added) ? data.added.filter((id) => typeof id === 'string') : [] };
+      added: texts(data.added), gone: texts(data.gone), dropped: texts(data.dropped) };
   } catch {
     return emptySync();
   }
@@ -143,6 +150,8 @@ export const createSyncer = ({
   clearTimer = clearTimeout,
   // SYNC-2: true when the start could not read the records and fell back to the empty doc.
   lost = false,
+  // REC-8: the photos that wait for their upload.
+  photos = memoryPhotoStore(),
 }) => {
   let sync = loadSync(storage);
   let queue = loadQueue(storage);
@@ -170,6 +179,11 @@ export const createSyncer = ({
   // SYNC-11: counts the runs after which the server had answered (ok, a rate limit, an auth error).
   let reached = 0;
   let stream = null;
+  // SYNC-15: the sweep runs at the first run of a start that has a session, once: an Undo of a
+  // delete (5 s, in memory) can bring a receipt back within the same start. `sweep` holds the
+  // photos to tombstone, found then.
+  let swept = false;
+  let sweep = [];
 
   const persist = () => {
     try {
@@ -257,14 +271,40 @@ export const createSyncer = ({
 
   // SYNC-4: each change in order. A change leaves the queue only after the server took it, and the
   // queue is saved at once, so a run that stops resends nothing as a new record.
+  // SYNC-14: the pending photo of a receipt upsert goes first; a failed upload stops the run as a
+  // failed push does, and the receipt waits in the queue. Resolves to the change to push, or to the
+  // result of the run. SYNC-16: a photo that the server refuses with field errors leaves the store,
+  // and the receipt goes with `photo: null`.
+  const withPhoto = async (token, change, live) => {
+    const key = change.kind === 'receipt' && change.op === 'upsert' ? change.data?.photo : null;
+    if (!key) return { change };
+    const blob = await photos.get(key);
+    if (!blob) return { change };
+    let refused = false;
+    try {
+      await client.uploadPhoto(token, { key, blob }, sync.owner);
+    } catch (error) {
+      if (!live()) return { stop: STALE };
+      if (!badData(known(error))) return { stop: stopOf(error) };
+      console.error('sync: the server refuses the photo', key, error.fields);
+      refused = true;
+    }
+    if (!live()) return { stop: STALE };
+    await photos.remove(key);
+    return { change: refused ? { ...change, data: { ...change.data, photo: null } } : change };
+  };
+
   const pushAll = async (token, live) => {
     for (let change = queue[0]; change; change = queue[0]) {
       const id = recordKey(change.kind, change.key);
+      const sent = await withPhoto(token, change, live);
+      if (sent.stop) return sent.stop;
       let rec;
       let overruled = [];
+      const before = sync.server.get(id)?.data?.photo ?? null;
       try {
         // SYNC-4: the server copy of the record is the base of the field-level merge.
-        ({ rec, overruled } = await client.push(token, change, sync.owner, sync.server.get(id) ?? null));
+        ({ rec, overruled } = await client.push(token, sent.change, sync.owner, sync.server.get(id) ?? null));
       } catch (error) {
         if (!live()) return STALE;
         // SYNC-4: the server refuses this data (`rec` stays undefined): the change is dropped and
@@ -275,7 +315,9 @@ export const createSyncer = ({
       const server = new Map(sync.server);
       if (rec) server.set(id, rec);
       else if (rec === null) server.delete(id);
-      sync = { ...sync, server };
+      // SYNC-15: a photo that the server copy named and the pushed receipt no longer names.
+      const replaced = rec && before && rec.data?.photo !== before && !sync.dropped.includes(before);
+      sync = { ...sync, server, ...(replaced ? { dropped: [...sync.dropped, before] } : {}) };
       // By identity: a save during the push may have replaced the change with a newer one.
       queue = queue.filter((queued) => queued !== change);
       persist();
@@ -310,15 +352,46 @@ export const createSyncer = ({
     sync = { ...sync, server: merged.server, local: nextRecords, cursor: cursorOf(pulled, sync.cursor), added: [] };
   };
 
+  // SYNC-15: at the first run of a start, the pending photos that nothing names leave the store, and
+  // the photos to tombstone are found. Both work on the device only, so they run offline too.
+  const sweepStart = async () => {
+    if (swept) return;
+    swept = true;
+    const doc = getDoc();
+    for (const key of orphanPhotos(await photos.keys(), doc, queue)) await photos.remove(key);
+    sweep = gonePhotos(sync.server, doc, sync.gone, sync.dropped);
+  };
+
+  // SYNC-15: each photo of the sweep gets its tombstone once, and goes into `gone`. A photo that a
+  // receipt of the doc names again is left alone. A failure stops the run as a failed push does.
+  const tombstoneAll = async (token, live) => {
+    for (const key of sweep) {
+      if (sync.gone.includes(key) || getDoc().receipts.some(({ photo }) => photo === key)) continue;
+      try {
+        await client.deletePhoto(token, key, sync.owner);
+      } catch (error) {
+        if (!live()) return STALE;
+        if (!badData(known(error))) return stopOf(error);
+      }
+      if (!live()) return STALE;
+      sync = { ...sync, gone: [...sync.gone, key], dropped: sync.dropped.filter((other) => other !== key) };
+      persist();
+    }
+    sweep = [];
+    return null;
+  };
+
   const syncOnce = async (live) => {
     const session = activeSession();
     if (!session) return 'ok';
     // SYNC-2: a save that notify did not queue (no session yet, an auth stop) is queued now, so that
     // the merge cannot overwrite it.
     noted(getDoc(), false);
+    await sweepStart();
+    if (!live()) return STALE;
     const { token, stop } = await freshToken(session, live);
     if (stop) return stop;
-    const stopped = await pushAll(token, live);
+    const stopped = (await pushAll(token, live)) ?? (await tombstoneAll(token, live));
     if (stopped) return stopped;
     let pulled;
     try {
@@ -416,7 +489,8 @@ export const createSyncer = ({
 
   // SYNC-10: a run in progress becomes stale: it saves nothing and changes no doc after this. The
   // timers and the stream stop, and nothing is sent. The session, the sync state and the queue leave
-  // the storage, and the status starts again; the app saves the empty doc that setDoc gives.
+  // the storage, and the status starts again; the app saves the empty doc that setDoc gives. The
+  // pending photos leave their store: the promise of the clear resolves when they are gone.
   const reset = () => {
     generation += 1;
     cancelTimer();
@@ -434,8 +508,10 @@ export const createSyncer = ({
     } catch {
       // Storage is not available: nothing is saved either.
     }
+    sweep = [];
     put(emptyDoc());
     report();
+    return photos.clear().catch((error) => console.error('sync: the photo store could not be cleared', error));
   };
 
   // ACC-11, ACC-12: changes that the server has not taken, queued or not: a save with no approved

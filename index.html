@@ -175,7 +175,7 @@
         <div class="sheet-grab"></div>
         <header class="sheet-head"><h2 id="receipt-sheet-title" class="sheet-title main"></h2><button id="receipt-close" class="button tonal" type="button" data-i18n="receipts.close"></button></header>
         <div class="sheet-body">
-          <figure id="receipt-photo" class="receipt-photo" hidden><img id="receipt-photo-img" class="receipt-photo-img" alt=""><button id="receipt-photo-button" class="button tonal" type="button"></button></figure>
+          <figure id="receipt-photo" class="receipt-photo" hidden><img id="receipt-photo-img" class="receipt-photo-img" data-i18n-attr="alt:receipts.photo" alt="" hidden><figcaption id="receipt-photo-note" class="input-help" hidden></figcaption><button id="receipt-photo-button" class="button tonal" type="button" data-i18n="receipts.takePhoto"></button><input id="receipt-photo-input" type="file" accept="image/*" capture="environment" hidden></figure>
           <label class="field"><input id="receipt-taken" class="input field-input" type="date" required><span class="field-label" data-i18n="receipts.takenOn"></span></label>
           <label class="field"><input id="receipt-amount" class="input field-input" type="text" inputmode="decimal" required aria-describedby="receipt-amount-error" data-i18n-attr="placeholder:receipts.amount"><span class="field-label" data-i18n="receipts.amount"></span></label>
           <p id="receipt-amount-error" class="input-help danger" data-i18n="error.amountInvalid" hidden></p>
@@ -245,6 +245,8 @@
           "#records": "./src/records.js",
           "#sync": "./src/sync.js",
           "#syncer": "./src/syncer.js",
+          "#photos": "./src/photos.js",
+          "#photostore": "./src/photostore.js",
           "#session": "./src/session.js",
           "#money": "./src/money.js",
           "#todos": "./src/todos.js",
@@ -268,6 +270,7 @@
           "#ui/rows": "./src/ui/rows.js",
           "#ui/todos": "./src/ui/todos.js",
           "#ui/receipts": "./src/ui/receipts.js",
+          "#ui/photo": "./src/ui/photo.js",
           "#ui/summary": "./src/ui/summary.js",
           "#ui/settings": "./src/ui/settings.js",
           "#swipe": "./src/swipe.js",
