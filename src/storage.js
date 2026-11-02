@@ -27,6 +27,18 @@ export const loadDoc = (storage, { key, normalize, empty }) => {
   return empty();
 };
 
+// True when a doc is stored at `key` and is not valid, so the start falls back to the empty doc
+// (TODO-1). No doc, or a storage that cannot be read, is not lost.
+export const isDocLost = (storage, { key, normalize }) => {
+  let text;
+  try {
+    text = storage.getItem(key);
+  } catch {
+    return false;
+  }
+  return text !== null && normalize(parse(text).data) === null;
+};
+
 export const saveDoc = (storage, key, doc) => {
   try {
     storage.setItem(key, JSON.stringify(doc));

@@ -30,20 +30,3 @@ export const expand = (nodes) => {
     );
   });
 };
-
-// The top of each note row, by id.
-export const rowTops = () =>
-  new Map([...document.querySelectorAll('#note-list .item-row[data-id]')].map((node) => [node.dataset.id, { node, top: node.getBoundingClientRect().top }]));
-
-// Moves each row from its place before a render (`before`, from `rowTops`) to its new place.
-export const slide = (before) => {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  rowTops().forEach(({ node, top }, key) => {
-    const from = before.get(key);
-    if (!from || from.top === top) return;
-    node.animate([{ transform: `translateY(${from.top - top}px)` }, { transform: 'none' }], {
-      duration: LEAVE_MS,
-      easing: 'ease-out',
-    });
-  });
-};

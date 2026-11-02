@@ -1,4 +1,4 @@
-import { normalizeNotes } from '#notes';
+import { normalizeDoc } from '#doc';
 import { exportJson, exportFilename, importJson, resetAll } from '#storage';
 import { LANGUAGES, LANGUAGE_NAMES } from '#i18n';
 import { switchModule } from '#modules';
@@ -114,13 +114,14 @@ export const bind = () => {
     const [file] = event.target.files;
     event.target.value = '';
     if (!file) return;
-    const result = importJson(await file.text(), normalizeNotes);
+    const result = importJson(await file.text(), normalizeDoc);
     if (result.error) {
       showToast(textOf(result.error));
       return;
     }
-    const notes = t('notes.count', { count: result.state.notes.length });
-    if (!window.confirm(t('import.confirm', { notes }))) return;
+    const todos = t('todos.count', { count: result.state.todos.length });
+    const receipts = t('receipts.count', { count: result.state.receipts.length });
+    if (!window.confirm(t('import.confirm', { todos, receipts }))) return;
     apply(result, { undoText: t('toast.imported') });
   });
 };

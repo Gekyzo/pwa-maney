@@ -45,7 +45,7 @@ export const loadSession = (storage) => {
 
 export const saveSession = (storage, session) => write(storage, SESSION_KEY, session);
 
-// ACC-8: only the session goes; the notes and the preferences stay.
+// ACC-8: only the session goes; the doc and the preferences stay.
 export const dropSession = (storage) => remove(storage, SESSION_KEY);
 
 export const loadOffline = (storage) => {

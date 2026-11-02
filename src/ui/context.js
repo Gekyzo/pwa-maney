@@ -1,4 +1,4 @@
-import { NOTES_KEY, emptyNotes, normalizeNotes } from '#notes';
+import { DOC_KEY, emptyDoc, normalizeDoc } from '#doc';
 import {
   loadDoc,
   saveDoc,
@@ -12,6 +12,7 @@ import {
   saveModules,
   loadOnboarded,
   hasStoredDoc,
+  isDocLost,
 } from '#storage';
 import { LANGUAGES, resolveLanguage, translator } from '#i18n';
 import { shouldShow } from '#onboarding';
@@ -25,11 +26,6 @@ export const CLICK_GUARD_MS = 350;
 // Width of one swipe-action of a row, the same as in styles.css.
 export const SIDE_BUTTON = 64;
 export const DRAG_START = 10;
-// The hold of a finger that lifts a row for a manual order.
-export const HOLD_MS = 400;
-// The distance from an edge of the list where a lifted row scrolls it, and the scroll of one frame.
-export const EDGE = 56;
-export const EDGE_STEP = 8;
 export const LEAVE_MS = 200;
 // The wait for the service worker to load the new deploy.
 export const REFRESH_MS = 15000;
@@ -75,20 +71,21 @@ export let navMotion = false;
 export const textOf = ({ key, params }) => t(key, params);
 
 // Read before the doc. A stored doc, valid or not, means that the install is not new.
-const firstStart = storage ? shouldShow({ seen: loadOnboarded(storage), hasState: hasStoredDoc(storage, NOTES_KEY) }) : false;
+const firstStart = storage ? shouldShow({ seen: loadOnboarded(storage), hasState: hasStoredDoc(storage, DOC_KEY) }) : false;
 
-const DOC = { key: NOTES_KEY, normalize: normalizeNotes, empty: emptyNotes };
-export let state = storage ? loadDoc(storage, DOC) : emptyNotes();
+const DOC = { key: DOC_KEY, normalize: normalizeDoc, empty: emptyDoc };
+export let state = storage ? loadDoc(storage, DOC) : emptyDoc();
+
+// Read before any save, as the first save replaces the doc that could not be read (TODO-1).
+export const stateLost = storage ? isDocLost(storage, DOC) : false;
 
 export const ui = {
   // The section in view.
-  view: 'notes',
-  // The note whose detail is open, or null.
-  noteId: null,
+  view: 'receipts',
   sheetOpen: false,
-  // The note that the sheet edits, or null for a new note.
+  // The to-do that the sheet edits, or null for a new to-do.
   editing: null,
-  // The note row whose side actions are open, or null.
+  // The row whose side actions are open, or null.
   openId: null,
   // Where the last swipe left its row, so that the next render moves the row from there.
   settleFrom: null,
@@ -103,12 +100,14 @@ export const ui = {
 };
 
 let toastTimer = null;
-// The button of the toast: { label, run }, or null.
+// The button of the toast: { label, run }, or null; and the doc that its Undo puts back, or null.
 export let toastAction = null;
+export let undoDoc = null;
 
 // `undo` is the doc to go back to; `action` is { label, run } for any other button.
 export const showToast = (text, { undo = null, action = null, ms = undo || action ? UNDO_MS : MESSAGE_MS } = {}) => {
   clearTimeout(toastTimer);
+  undoDoc = undo;
   toastAction = undo ? { label: t('toast.undo'), run: () => commit(undo) } : action;
   $('toast-text').textContent = text;
   $('toast-action').textContent = toastAction?.label ?? '';
@@ -120,6 +119,7 @@ export const showToast = (text, { undo = null, action = null, ms = undo || actio
 export const hideToast = () => {
   clearTimeout(toastTimer);
   toastAction = null;
+  undoDoc = null;
   $('toast').hidden = true;
 };
 
@@ -130,11 +130,37 @@ export const setRender = (fn) => {
 };
 export const render = () => renderer();
 
+// The hook of each save: the sync registers its queue here, so that this module imports no view.
+let onSave = () => {};
+export const setOnSave = (fn) => {
+  onSave = fn;
+};
+
 export const commit = (next) => {
   state = next;
-  const saved = storage !== null && saveDoc(storage, NOTES_KEY, state);
+  const saved = storage !== null && saveDoc(storage, DOC_KEY, state);
   render();
+  // After the render: an error of the hook never leaves the screen behind the state.
+  if (saved) {
+    try {
+      onSave(state);
+    } catch (error) {
+      console.error(error);
+    }
+  }
   return saved;
+};
+
+// Puts a doc that the sync merged in place: it is saved and shown, but it is not a save of the
+// user, so the hook does not run. A doc that cannot be saved changes nothing and gives false, so the
+// doc in memory stays the stored one.
+export const replaceDoc = (next) => {
+  if (storage && !saveDoc(storage, DOC_KEY, next)) return false;
+  // Undo would put back the doc of before the merge and send it as a save of the user.
+  if (undoDoc) hideToast();
+  state = next;
+  render();
+  return true;
 };
 
 // Applies a pure operation. `undoText` makes the change reversible for a few seconds.

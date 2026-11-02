@@ -1,7 +1,6 @@
 import { direction, slideTo } from '#sections';
 import { visibleSections } from '#modules';
 import { ui, off, render, scroller, guardClick } from '#ui/context';
-import { reorder } from '#ui/drag';
 import { checkVersion } from '#ui/update';
 import { showNavButton } from '#ui/dust';
 
@@ -17,7 +16,7 @@ const enter = (way) => {
 export const setView = (view) => {
   if (view === ui.view) return;
   const way = direction(ui.view, view, visibleSections(off));
-  Object.assign(ui, { view, noteId: null, openId: null });
+  Object.assign(ui, { view, openId: null });
   scroller.scrollTop = 0;
   render();
   enter(way);
@@ -48,7 +47,7 @@ export const bind = () => {
   let sectionSlide = null;
   document.addEventListener('pointerdown', (event) => {
     sectionSlide = null;
-    if (!event.isPrimary || event.button !== 0 || reorder || ui.sheetOpen || ui.onboarding !== null) return;
+    if (!event.isPrimary || event.button !== 0 || ui.sheetOpen || ui.onboarding !== null) return;
     if (!event.target.closest('.app-header, main') || event.target.closest('.item-row-swipe, input, textarea, select')) return;
     sectionSlide = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
   });

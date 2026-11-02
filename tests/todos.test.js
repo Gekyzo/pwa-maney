@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_TODO, isDate, normalizeTodo, addTodo, editTodo, setTodoDone, deleteTodo, sortedTodos } from '#todos';
+import { MAX_TODO, isDate, isIso, isLate, localDay, normalizeTodo, addTodo, editTodo, setTodoDone, deleteTodo, sortedTodos } from '#todos';
 
 const doc = (...todos) => ({ version: 1, todos, receipts: [], summary: null });
 const todo = (id, extra = {}) => ({ id, text: id, due: null, done: false, doneAt: null, ...extra });
@@ -8,6 +8,25 @@ const todo = (id, extra = {}) => ({ id, text: id, due: null, done: false, doneAt
 test('isDate accepts only a real calendar date', () => {
   for (const text of ['2026-02-28', '2024-02-29', '2026-12-31']) assert.equal(isDate(text), true, text);
   for (const text of ['2026-02-30', '2026-13-01', '2026-2-3', '', '2026-02-28T00:00', null, 5]) assert.equal(isDate(text), false, String(text));
+});
+
+test('isIso accepts only a real ISO-8601 time', () => {
+  const good = ['2026-11-02T10:00:00Z', '2026-11-02T10:00:00.000Z', '2024-02-29T23:59:59+02:00', '2026-01-01T00:00:00.5-05:30'];
+  for (const text of good) assert.equal(isIso(text), true, text);
+  const bad = [
+    '2026-02-30T10:00:00Z',
+    '2026-11-02T24:00:00Z',
+    '2026-11-02T10:60:00Z',
+    '2026-11-02T10:00:60Z',
+    '2026-11-02T10:00:00+24:00',
+    '2026-11-02T10:00:00+02:60',
+    '2026-11-02T10:00:00',
+    '2026-11-02',
+    '',
+    null,
+    5,
+  ];
+  for (const text of bad) assert.equal(isIso(text), false, String(text));
 });
 
 test('addTodo trims the text, starts open, and leaves the input state unchanged', () => {
@@ -63,6 +82,13 @@ test('setTodoDone sets and clears doneAt', () => {
   assert.deepEqual(open.todos[0], todo('a'));
 });
 
+test('setTodoDone refuses a missing or false time when it marks a to-do done', () => {
+  const state = doc(todo('a'));
+  const invalid = { state, error: { key: 'error.dateInvalid' } };
+  for (const now of [undefined, null, '', 'now', '2026-02-30T10:00:00Z']) assert.deepEqual(setTodoDone(state, 'a', true, now), invalid, String(now));
+  assert.deepEqual(setTodoDone(doc(todo('a', { done: true, doneAt: '2026-11-02T10:00:00.000Z' })), 'a', false).state.todos[0], todo('a'));
+});
+
 test('setTodoDone and deleteTodo refuse an unknown id', () => {
   const state = doc(todo('a'));
   const missing = { state, error: { key: 'error.todoMissing' } };
@@ -109,4 +135,17 @@ test('normalizeTodo refuses a value that is not a to-do', () => {
     todo('a', { doneAt: 5 }),
   ];
   for (const value of bad) assert.equal(normalizeTodo(value), null, JSON.stringify(value));
+});
+
+test('localDay gives the local calendar day of a time', () => {
+  assert.equal(localDay(new Date(2026, 0, 5, 23, 59)), '2026-01-05');
+  assert.equal(localDay(new Date(2026, 10, 2, 0, 0)), '2026-11-02');
+});
+
+test('isLate is true for an open to-do whose due date is before today', () => {
+  assert.equal(isLate(todo('a', { due: '2026-11-01' }), '2026-11-02'), true);
+  assert.equal(isLate(todo('a', { due: '2026-11-02' }), '2026-11-02'), false);
+  assert.equal(isLate(todo('a', { due: '2026-11-03' }), '2026-11-02'), false);
+  assert.equal(isLate(todo('a'), '2026-11-02'), false);
+  assert.equal(isLate(todo('a', { due: '2026-11-01', done: true, doneAt: '2026-11-02T10:00:00Z' }), '2026-11-02'), false);
 });

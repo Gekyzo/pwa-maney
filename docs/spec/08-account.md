@@ -2,7 +2,7 @@
 
 The account and the approval gate. The server is the PocketBase server of `pwa-server`: one
 account serves every app, and the administrator approves access per app. The app talks to it
-with `fetch`, with no SDK. The notes stay on the device: nothing syncs. The user picks one of
+with `fetch`, with no SDK. The doc stays on the device: nothing syncs. The user picks one of
 two ways in: **Continue with Google**, or **Use offline** with no account.
 
 ## Rules
@@ -36,7 +36,7 @@ two ways in: **Continue with Google**, or **Use offline** with no account.
   shows the toast `account.waiting.still`.
 - **ACC-8** Settings has the group **Account**: with a session, the email and **Log out**; with
   none, **Sign in with Google**, which opens **Sign in**. **Log out** removes the session only;
-  the notes and the preferences stay. It then routes as ACC-1: with the offline flag the app
+  the doc and the preferences stay. It then routes as ACC-1: with the offline flag the app
   stays open, else **Sign in** shows.
 - **ACC-9** With no `localStorage` the app shows no account screen and works as before.
 - **ACC-10** The offline flag is `maney.offline` = `1` in `localStorage`. **Use offline**

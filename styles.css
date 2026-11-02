@@ -24,7 +24,8 @@
   }
 
   button,
-  input {
+  input,
+  textarea {
     font: inherit;
     color: inherit;
   }
@@ -126,6 +127,22 @@
     height: 100%;
     opacity: 0;
     cursor: pointer;
+  }
+
+  /* @component todos
+     @scope todos
+     @summary The To-dos section: one centred column of to-do rows (item-row with a check), from 600px too.
+     @part todos-due  The due date in the meta line of a row.
+     @state late      On todos-due: an open to-do whose due date is before today, in the colour of danger.
+     @example <section class="todos" style="width: 100%"><ul class="item-list"><li class="item-row"><div class="item-row-body"><input class="item-row-check" type="checkbox" aria-label="Done"><button class="item-row-name" type="button"><span class="item-row-label">Pay the rent</span><small class="item-row-meta todos-due" data-late>1 nov</small></button></div></li></ul></section> */
+  .todos {
+    width: 100%;
+    max-width: var(--content-max);
+    margin-inline: auto;
+  }
+
+  .todos-due[data-late] {
+    color: var(--danger);
   }
 
   /* @component whatsnew

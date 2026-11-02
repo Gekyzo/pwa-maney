@@ -26,24 +26,17 @@
     </div>
 
     <main>
-      <section id="notes" class="pane">
-        <div class="pane-list">
-          <ul id="note-list" class="item-list"></ul>
-          <div id="notes-empty" class="empty-state" hidden>
-            <p data-i18n="notes.empty"></p>
-            <button id="notes-add" class="button primary" type="button" data-i18n="notes.add"></button>
-          </div>
+      <section id="receipts" hidden></section>
+
+      <section id="todos" class="todos" hidden>
+        <ul id="todo-list" class="item-list"></ul>
+        <div id="todos-empty" class="empty-state" hidden>
+          <p data-i18n="todos.empty"></p>
+          <button id="todos-add" class="button primary" type="button" data-i18n="todos.add"></button>
         </div>
-        <article id="note-detail" class="pane-detail">
-          <button id="note-back" class="button quiet pane-back" type="button" data-i18n="notes.back"></button>
-          <p id="note-detail-empty" class="empty-state inline" data-i18n="notes.pick"></p>
-          <p id="note-detail-text"></p>
-          <div id="note-actions" class="cluster">
-            <button id="note-edit" class="button outline" type="button" data-i18n="notes.edit"></button>
-            <button id="note-delete" class="button danger" type="button"><svg class="icon" aria-hidden="true"><use href="icons.svg#trash"/></svg><span data-i18n="notes.delete"></span></button>
-          </div>
-        </article>
       </section>
+
+      <section id="summary" hidden></section>
 
       <section id="settings" class="settings" hidden>
         <div id="account-group" hidden>
@@ -83,7 +76,9 @@
         </div>
         <h2 class="list-group-head" data-i18n="settings.modules"></h2>
         <div class="list-group">
-          <label class="switch"><span data-i18n="nav.notes"></span><input class="switch-input" type="checkbox" role="switch" data-module="notes"></label>
+          <label class="switch"><span data-i18n="nav.receipts"></span><input class="switch-input" type="checkbox" role="switch" data-module="receipts"></label>
+          <label class="switch"><span data-i18n="nav.todos"></span><input class="switch-input" type="checkbox" role="switch" data-module="todos"></label>
+          <label class="switch"><span data-i18n="nav.summary"></span><input class="switch-input" type="checkbox" role="switch" data-module="summary"></label>
         </div>
         <div id="install-group" hidden>
           <h2 class="list-group-head" data-i18n="settings.app"></h2>
@@ -103,12 +98,20 @@
       </section>
     </main>
 
-    <button id="fab" class="fab" type="button" data-i18n-attr="aria-label:notes.add">+</button>
+    <button id="fab" class="fab" type="button" data-i18n-attr="aria-label:todos.add">+</button>
 
     <nav class="nav-bar" data-i18n-attr="aria-label:nav.label">
-      <button class="nav-item" type="button" data-view="notes">
-        <svg class="icon" aria-hidden="true"><use href="icons.svg#note"/></svg>
-        <span data-i18n="nav.notes"></span>
+      <button class="nav-item" type="button" data-view="receipts">
+        <svg class="icon" aria-hidden="true"><use href="icons.svg#receipt"/></svg>
+        <span data-i18n="nav.receipts"></span>
+      </button>
+      <button class="nav-item" type="button" data-view="todos">
+        <svg class="icon" aria-hidden="true"><use href="icons.svg#todo"/></svg>
+        <span data-i18n="nav.todos"></span>
+      </button>
+      <button class="nav-item" type="button" data-view="summary">
+        <svg class="icon" aria-hidden="true"><use href="icons.svg#summary"/></svg>
+        <span data-i18n="nav.summary"></span>
       </button>
       <button class="nav-item" type="button" data-view="settings">
         <svg class="icon" aria-hidden="true"><use href="icons.svg#settings"/></svg>
@@ -125,15 +128,16 @@
       </section>
     </div>
 
-    <div id="note-sheet" class="sheet-layer" hidden>
-      <div id="note-veil" class="sheet-veil"></div>
-      <form id="note-form" class="sheet" role="dialog" aria-modal="true" aria-labelledby="note-sheet-title" autocomplete="off">
+    <div id="todo-sheet" class="sheet-layer" hidden>
+      <div id="todo-veil" class="sheet-veil"></div>
+      <form id="todo-form" class="sheet" role="dialog" aria-modal="true" aria-labelledby="todo-sheet-title" autocomplete="off">
         <div class="sheet-grab"></div>
-        <header class="sheet-head"><h2 id="note-sheet-title" class="sheet-title main"></h2><button id="note-close" class="button tonal" type="button" data-i18n="notes.close"></button></header>
+        <header class="sheet-head"><h2 id="todo-sheet-title" class="sheet-title main"></h2><button id="todo-close" class="button tonal" type="button" data-i18n="todos.close"></button></header>
         <div class="sheet-body">
-          <label class="field"><textarea id="note-text" class="input field-input" maxlength="200" rows="3" required data-i18n-attr="placeholder:notes.text"></textarea><span class="field-label" data-i18n="notes.text"></span></label>
+          <label class="field"><textarea id="todo-text" class="input field-input" maxlength="500" rows="3" required data-i18n-attr="placeholder:todos.text"></textarea><span class="field-label" data-i18n="todos.text"></span></label>
+          <label class="field"><input id="todo-due" class="input field-input" type="date"><span class="field-label" data-i18n="todos.due"></span></label>
         </div>
-        <footer class="sheet-foot"><button class="button primary wide" type="submit" data-i18n="notes.save"></button></footer>
+        <footer class="sheet-foot"><button class="button primary wide" type="submit" data-i18n="todos.save"></button></footer>
       </form>
     </div>
 
@@ -194,7 +198,6 @@
           "#config": "./src/config.js",
           "#pocketbase": "./src/pocketbase.js",
           "#session": "./src/session.js",
-          "#notes": "./src/notes.js",
           "#money": "./src/money.js",
           "#todos": "./src/todos.js",
           "#receipts": "./src/receipts.js",
@@ -214,13 +217,11 @@
           "#ui/install": "./src/ui/install.js",
           "#ui/motion": "./src/ui/motion.js",
           "#ui/nav": "./src/ui/nav.js",
-          "#ui/notes": "./src/ui/notes.js",
+          "#ui/todos": "./src/ui/todos.js",
           "#ui/settings": "./src/ui/settings.js",
           "#swipe": "./src/swipe.js",
-          "#reorder": "./src/reorder.js",
           "#particles": "./src/particles.js",
           "#onboarding": "./src/onboarding.js",
-          "#ui/drag": "./src/ui/drag.js",
           "#ui/dust": "./src/ui/dust.js",
           "#ui/onboarding": "./src/ui/onboarding.js",
           "#ui/whatsnew": "./src/ui/whatsnew.js",

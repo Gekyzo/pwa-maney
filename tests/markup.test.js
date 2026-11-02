@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CATALOGS } from '#i18n';
 import { PAGES } from '#onboarding';
+import { SECTIONS } from '#sections';
+import { MODULES } from '#modules';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const body = html.slice(html.indexOf('<body'), html.indexOf('<script type="importmap">'));
@@ -34,17 +36,31 @@ test('the markup has no text of its own', () => {
   assert.doesNotMatch(body, /\s(aria-label|placeholder|title)="/);
 });
 
-test('the note sheet has a veil, a dialog and a text field with the maximum length', () => {
-  const [layer = ''] = body.match(/<div id="note-sheet" class="sheet-layer"[\s\S]*?<\/form>\s*<\/div>/) ?? [];
-  assert.match(layer, /<div id="note-veil" class="sheet-veil">/);
-  assert.match(layer, /<form id="note-form" class="sheet" role="dialog"/);
-  assert.match(layer, /<textarea id="note-text"[^>]*maxlength="200"/);
+test('the to-do sheet has a veil, a dialog, a text field of at most 500 characters and an optional date (TODO-10)', () => {
+  const [layer = ''] = body.match(/<div id="todo-sheet" class="sheet-layer"[\s\S]*?<\/form>\s*<\/div>/) ?? [];
+  assert.match(layer, /<div id="todo-veil" class="sheet-veil">/);
+  assert.match(layer, /<form id="todo-form" class="sheet" role="dialog"/);
+  assert.match(layer, /<textarea id="todo-text"[^>]*maxlength="500"/);
+  const [date = ''] = layer.match(/<input id="todo-due"[^>]*>/) ?? [];
+  assert.match(date, /type="date"/);
+  assert.doesNotMatch(date, /required/);
 });
 
-test('the note sheet has a head with its title and Close, a body, and Save in its foot', () => {
-  const [layer = ''] = body.match(/<div id="note-sheet" class="sheet-layer"[\s\S]*?<\/form>\s*<\/div>/) ?? [];
-  assert.match(layer, /<header class="sheet-head"><h2 id="note-sheet-title" class="sheet-title main"><\/h2><button id="note-close" class="button tonal" type="button" data-i18n="notes.close"><\/button><\/header>\s*<div class="sheet-body">/);
-  assert.match(layer, /<footer class="sheet-foot"><button class="button primary wide" type="submit" data-i18n="notes.save"><\/button><\/footer>\s*<\/form>/);
+test('the to-do sheet has a head with its title and Close, a body, and Save in its foot', () => {
+  const [layer = ''] = body.match(/<div id="todo-sheet" class="sheet-layer"[\s\S]*?<\/form>\s*<\/div>/) ?? [];
+  assert.match(layer, /<header class="sheet-head"><h2 id="todo-sheet-title" class="sheet-title main"><\/h2><button id="todo-close" class="button tonal" type="button" data-i18n="todos.close"><\/button><\/header>\s*<div class="sheet-body">/);
+  assert.match(layer, /<footer class="sheet-foot"><button class="button primary wide" type="submit" data-i18n="todos.save"><\/button><\/footer>\s*<\/form>/);
+});
+
+test('the page has one section and one navigation item for each section, in the order of SECTIONS (NAV-1)', () => {
+  const items = [...body.matchAll(/<button class="nav-item" type="button" data-view="([\w-]+)">/g)].map(([, view]) => view);
+  assert.deepEqual(items, SECTIONS);
+  for (const view of SECTIONS) assert.match(body, new RegExp(`<section id="${view}"`), view);
+});
+
+test('Modules in Settings has one switch for each module (MOD-1)', () => {
+  const boxes = [...body.matchAll(/data-module="([\w-]+)"/g)].map(([, id]) => id);
+  assert.deepEqual(boxes, MODULES);
 });
 
 test('the walkthrough has one drawing for each page, in the order of the pages', () => {

@@ -9,10 +9,14 @@ export const isDate = (text) => {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 };
 
-export const isIso = (text) =>
-  typeof text === 'string' &&
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(text) &&
-  !Number.isNaN(Date.parse(text));
+// A real ISO-8601 time with a zone: a real date, hours 00-23, minutes and seconds 00-59.
+export const isIso = (text) => {
+  if (typeof text !== 'string') return false;
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(text);
+  if (!match || !isDate(match[1])) return false;
+  const [hour, minute, second, zoneHour = 0, zoneMinute = 0] = match.slice(2).map((part) => Number(part ?? 0));
+  return hour < 24 && minute < 60 && second < 60 && zoneHour < 24 && zoneMinute < 60;
+};
 
 const missing = (state) => ({ state, error: { key: 'error.todoMissing' } });
 
@@ -47,6 +51,7 @@ export const editTodo = (state, id, fields) => {
 
 export const setTodoDone = (state, id, done, nowIso) => {
   if (!findTodo(state, id)) return missing(state);
+  if (done && !isIso(nowIso)) return { state, error: { key: 'error.dateInvalid' } };
   return change(state, id, { done: Boolean(done), doneAt: done ? nowIso : null });
 };
 
@@ -54,6 +59,13 @@ export const deleteTodo = (state, id) => {
   if (!findTodo(state, id)) return missing(state);
   return { state: { ...state, todos: state.todos.filter((todo) => todo.id !== id) } };
 };
+
+// The local calendar day `YYYY-MM-DD` of a time. The caller gives the time: this module reads no clock.
+export const localDay = (date) =>
+  [date.getFullYear(), date.getMonth() + 1, date.getDate()].map((part, index) => String(part).padStart(index ? 2 : 4, '0')).join('-');
+
+// An open to-do whose due date is before `today` (`YYYY-MM-DD`).
+export const isLate = (todo, today) => !todo.done && todo.due !== null && todo.due < today;
 
 const byText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 

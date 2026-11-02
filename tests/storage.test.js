@@ -9,6 +9,7 @@ import {
   exportFilename,
   importJson,
   hasStoredDoc,
+  isDocLost,
   LANGUAGE_KEY,
   loadLanguage,
   saveLanguage,
@@ -97,6 +98,14 @@ test('a saved doc loads back', () => {
   assert.equal(hasStoredDoc(storage, KEY), true);
 });
 
+test('a stored doc that is not valid, or not JSON, is lost; a valid doc, no doc or a broken storage is not', () => {
+  assert.equal(isDocLost(fakeStorage({ [KEY]: '{"version":9}' }), opts), true);
+  assert.equal(isDocLost(fakeStorage({ [KEY]: 'not json' }), opts), true);
+  assert.equal(isDocLost(fakeStorage({ [KEY]: JSON.stringify(empty()) }), opts), false);
+  assert.equal(isDocLost(fakeStorage(), opts), false);
+  assert.equal(isDocLost(brokenStorage(), opts), false);
+});
+
 test('hasStoredDoc is true for a stored text that is not a valid doc, and false for none', () => {
   assert.equal(hasStoredDoc(fakeStorage({ [KEY]: 'x' }), KEY), true);
   assert.equal(hasStoredDoc(fakeStorage(), KEY), false);
@@ -148,7 +157,7 @@ test('a preference is not part of the stored doc', () => {
   saveLanguage(storage, 'en');
   saveHand(storage, 'left');
   saveTheme(storage, 'dark');
-  saveModules(storage, ['notes']);
+  saveModules(storage, ['todos']);
   saveOnboarded(storage);
   assert.deepEqual(loadDoc(storage, opts), empty());
   assert.equal(hasStoredDoc(storage, KEY), false);
@@ -213,28 +222,28 @@ test('the theme functions do not throw when the storage does', () => {
 });
 
 test('loadModules returns the stored ids that are modules', () => {
-  assert.deepEqual(loadModules(fakeStorage({ [MODULES_KEY]: '["notes"]' })), ['notes']);
+  assert.deepEqual(loadModules(fakeStorage({ [MODULES_KEY]: '["summary","todos"]' })), ['todos', 'summary']);
 });
 
 test('loadModules returns no module off for no value, bad JSON, a value that is not a list and unknown ids', () => {
   assert.deepEqual(loadModules(fakeStorage()), []);
   assert.deepEqual(loadModules(fakeStorage({ [MODULES_KEY]: '{' })), []);
-  assert.deepEqual(loadModules(fakeStorage({ [MODULES_KEY]: '"notes"' })), []);
-  assert.deepEqual(loadModules(fakeStorage({ [MODULES_KEY]: '{"notes":true}' })), []);
+  assert.deepEqual(loadModules(fakeStorage({ [MODULES_KEY]: '"todos"' })), []);
+  assert.deepEqual(loadModules(fakeStorage({ [MODULES_KEY]: '{"todos":true}' })), []);
   assert.deepEqual(loadModules(fakeStorage({ [MODULES_KEY]: '["shops",1,null]' })), []);
 });
 
 test('saveModules stores the known ids and an empty list removes the key', () => {
   const storage = fakeStorage();
-  assert.equal(saveModules(storage, ['shops', 'notes']), true);
-  assert.equal(storage.getItem(MODULES_KEY), '["notes"]');
+  assert.equal(saveModules(storage, ['shops', 'summary', 'receipts']), true);
+  assert.equal(storage.getItem(MODULES_KEY), '["receipts","summary"]');
   assert.equal(saveModules(storage, []), true);
   assert.equal(storage.getItem(MODULES_KEY), null);
 });
 
 test('the module functions do not throw when the storage does', () => {
   assert.deepEqual(loadModules(brokenStorage()), []);
-  assert.equal(saveModules(brokenStorage(), ['notes']), false);
+  assert.equal(saveModules(brokenStorage(), ['todos']), false);
   assert.equal(saveModules(brokenStorage(), []), false);
 });
 

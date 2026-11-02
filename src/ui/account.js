@@ -1,5 +1,5 @@
 // The account screens (ACC-2): Sign in, with Google or offline, and Waiting for approval, over the
-// whole app; and the group Account of Settings (ACC-8). The notes stay on the device: nothing
+// whole app; and the group Account of Settings (ACC-8). The doc stays on the device: nothing
 // syncs.
 import { createClient, PocketBaseError } from '#pocketbase';
 import { loadSession, saveSession, dropSession, routeAtStart, savePending, takePending, loadOffline, saveOffline, dropOffline } from '#session';

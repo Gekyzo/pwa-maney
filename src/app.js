@@ -1,10 +1,9 @@
-import { $, ui, storage, t, setRender, render, showToast, hideToast, toastAction, clickGuardUntil } from '#ui/context';
+import { $, ui, storage, t, setRender, showToast, hideToast, toastAction, clickGuardUntil } from '#ui/context';
 import { bind as bindNav, renderNav } from '#ui/nav';
-import { bind as bindNotes, renderNotes, closeNoteSheet } from '#ui/notes';
+import { bind as bindTodos, renderTodos, closeTodoSheet } from '#ui/todos';
 import { bind as bindSettings, applyLanguage } from '#ui/settings';
 import { bind as bindInstall, renderInstall } from '#ui/install';
 import { readVersion, renderVersion, offerUpdate } from '#ui/update';
-import { bind as bindDrag, endReorder } from '#ui/drag';
 import { bind as bindOnboarding, closeOnboarding, turnOnboarding } from '#ui/onboarding';
 import { bind as bindWhatsNew, startWhatsNew, isWhatsNewOpen, closeWhatsNew } from '#ui/whatsnew';
 import { bind as bindAccount, renderAccount, startAccount, goOnline, isAccountOpen, closeAccount } from '#ui/account';
@@ -17,8 +16,9 @@ if (oauth) history.replaceState(history.state, '', clean);
 const renderAll = () => {
   renderNav();
   $('title').textContent = t(`nav.${ui.view}`);
-  renderNotes();
-  $('settings').hidden = ui.view !== 'settings';
+  // Receipts and Summary are empty sections until their views come.
+  for (const view of ['receipts', 'summary', 'settings']) $(view).hidden = ui.view !== view;
+  renderTodos();
   renderVersion();
   renderInstall();
   renderAccount();
@@ -26,10 +26,9 @@ const renderAll = () => {
 setRender(renderAll);
 
 bindNav();
-bindNotes();
+bindTodos();
 bindSettings();
 bindInstall();
-bindDrag();
 bindOnboarding();
 bindWhatsNew();
 bindAccount();
@@ -61,12 +60,7 @@ document.addEventListener('keydown', (event) => {
     closeWhatsNew();
     return;
   }
-  endReorder(false);
-  if (ui.sheetOpen) closeNoteSheet();
-  else if (ui.noteId !== null) {
-    ui.noteId = null;
-    render();
-  }
+  if (ui.sheetOpen) closeTodoSheet();
 });
 
 $('toast-action').addEventListener('click', () => {

@@ -10,7 +10,8 @@ The phone companion of maney: receipts with a photo, to-dos and the month summar
 - a release script and a GitHub Pages deploy on a version tag;
 - structural tests that keep the layers, the text, the design system and the specification in step.
 
-A small notes list shows each part in use. Replace it with the domain of the app.
+The sections are Receipts, To-dos, Summary and Settings. The To-dos screen lists the to-dos with an
+optional due date; Receipts and Summary come next.
 
 ## Develop
 
@@ -23,7 +24,7 @@ npm run ds      # copy the design system again from ../pwa-design-system
 ## Account and set-up outside the app
 
 The app opens with **Sign in**: **Continue with Google** (an account on the PocketBase server of
-`pwa-server`, approved per app) or **Use offline** (no account). The notes stay on the device in
+`pwa-server`, approved per app) or **Use offline** (no account). The data stays on the device in
 both modes; nothing syncs. The rules are in [docs/spec/08-account.md](docs/spec/08-account.md).
 
 The server slug is `APP_SLUG` of `src/config.js`, which `npm run init` rewrites. Two steps happen
