@@ -2,8 +2,9 @@
 
 The account and the approval gate. The server is the PocketBase server of `pwa-server`: one
 account serves every app, and the administrator approves access per app. The app talks to it
-with `fetch`, with no SDK. The doc stays on the device: nothing syncs. The user picks one of
-two ways in: **Continue with Google**, or **Use offline** with no account.
+with `fetch`, with no SDK. The receipts and to-dos of an approved account sync between its
+devices and maney ([09-sync.md](09-sync.md)). The user picks one of two ways in: **Continue with
+Google**, or **Use offline** with no account.
 
 ## Rules
 
@@ -13,8 +14,9 @@ two ways in: **Continue with Google**, or **Use offline** with no account.
   reads the clock.
 - **ACC-2** **Sign in** has the app icon, the title, one line of text, **Continue with
   Google** and **Use offline**. **Waiting for approval** has **Check again** and **Log out**. Both
-  cover the whole app, the walkthrough too. **Use offline** closes **Sign in** (ACC-10); with the
-  offline flag set, `Escape` closes it too. Else `Escape` does nothing while one is open. An
+  cover the whole app, the walkthrough too. **Use offline** closes **Sign in** (ACC-10). With the
+  offline flag set, from **Sign in with Google** of Settings, or after an auth stop (SYNC-4),
+  `Escape` closes it too. Else `Escape` does nothing while one is open. An
   error shows below the button: `account.error.google`, `account.error.network` or
   `account.error.tooMany`. A button waits for its request, so a second tap sends nothing.
 - **ACC-3** "Approved" is the `app_access` row of the app `APP_SLUG` with the status
@@ -29,19 +31,45 @@ two ways in: **Continue with Google**, or **Use offline** with no account.
   `account.error.google`.
 - **ACC-5** The session, the token and the user, is stored in `maney.session`.
 - **ACC-6** At the start when online, and at the `online` event, the app refreshes a saved
-  session. An approved session keeps the app open; a session that is no longer approved opens
-  **Waiting for approval**; an auth error removes the session and opens **Sign in**. A network or
-  server error changes nothing. A logout during the request makes the answer save nothing.
+  session, and logs in with the fresh session (ACC-11): its login runs the sync (SYNC-3). An
+  approved session keeps the app open; a session that is no longer approved opens **Waiting for
+  approval**; an auth error removes the session and opens **Sign in**, and the doc, the sync
+  state and the queue stay for a login of the same user (SYNC-8). A network or server error keeps
+  the session and starts a run, so the retries of SYNC-3 and the offline note (SYNC-11) follow.
+  A logout during the request makes the answer save nothing. A start offline with a session shows
+  the offline note.
 - **ACC-7** **Check again** refreshes the session as ACC-6. A session that is still not approved
   shows the toast `account.waiting.still`.
-- **ACC-8** Settings has the group **Account**: with a session, the email and **Log out**; with
-  none, **Sign in with Google**, which opens **Sign in**. **Log out** removes the session only;
-  the doc and the preferences stay. It then routes as ACC-1: with the offline flag the app
-  stays open, else **Sign in** shows.
+- **ACC-8** Settings has the group **Account**: with a session, the email, the last sync under it
+  in the muted style, and **Log out**; with none, or after an auth stop (SYNC-4), **Sign in with
+  Google**, which opens **Sign in**. The last sync is `account.lastSync` with the date and the time
+  of the last run that ended `ok`, short, in the language of the app, or `account.never`. It
+  changes at each status of the sync. **Log out** runs as ACC-12: the
+  device preferences and the offline flag stay. It then routes as ACC-1: with the offline flag
+  the app stays open, else **Sign in** shows.
 - **ACC-9** With no `localStorage` the app shows no account screen and works as before.
 - **ACC-10** The offline flag is `maney.offline` = `1` in `localStorage`. **Use offline**
   writes it; an approved session that opens the app removes it. A storage that refuses the
   write still opens the app for this start.
+- **ACC-11** A login of a user other than the stored owner first clears the device: the doc,
+  the sync state and the queue of the previous user, so no change of that user reaches the new
+  account. Then the new user takes the account (SYNC-8). A device preference stays. When changes
+  are not sent, the login first asks `account.exportAsk` and changes nothing, the session too: the
+  app keeps the session in memory only. A yes offers the export file. After the answer the login
+  clears and goes on. A change that the server has not taken counts as not sent whether or not it
+  was queued: a save after a lost approval stays in the doc only. A device with no stored owner
+  clears nothing and merges (SYNC-8). A session that is not approved changes nothing and asks
+  nothing until the approval (ACC-3), but it is saved: over the session of another user, that
+  session is replaced, and the doc and the sync state of the stored owner stay until the approval.
+- **ACC-12** **Log out** when online sends the queue first. When changes are still not sent
+  (offline, the sync stopped, or a save after a lost approval that no queue holds), the app asks
+  `account.logoutAsk`: a no changes nothing. A yes asks `account.logoutExport`, whose yes offers
+  the export file; then the logout goes on. A second tap during a logout starts nothing. It
+  removes the doc, the sync state, the queue and the session, and closes the stream. A run in
+  progress becomes stale. The device preferences and the offline flag stay. **Log out** of
+  **Waiting for approval** is this logout when the account owns the doc of the device (a lost
+  approval). An account that never owned it (another user, or no stored owner) only removes its
+  session, and the doc of the device stays.
 
 ## Set-up outside the app
 

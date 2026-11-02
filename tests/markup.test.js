@@ -141,13 +141,17 @@ test('the account screens cover the app: Sign in with Google or offline, and Wai
   assert.deepEqual(buttons, ['waiting-check', 'waiting-logout']);
 });
 
-test('Settings has the Account group: the email and Log out, or Sign in with Google (ACC-8)', () => {
+test('Settings has the Account group: the email and the last sync, and Log out, or Sign in with Google (ACC-8)', () => {
   const [group = ''] = body.match(/<div id="account-group" hidden>[\s\S]*?<\/div>\s*<\/div>/) ?? [];
   assert.match(group, /data-i18n="settings.account"/);
   assert.match(group, /<span id="account-email" class="settings-row-label"><\/span>/);
-  assert.match(group, /<div id="account-row" class="settings-row"><span id="account-email" class="settings-row-label"><\/span><\/div>/);
+  assert.match(group, /<div id="account-row" class="settings-row account-row"><span id="account-email" class="settings-row-label"><\/span><span id="account-sync" class="settings-row-value"><\/span><\/div>/);
   assert.match(group, /<button id="logout" class="settings-row" type="button">/);
   assert.match(group, /<button id="account-login" class="settings-row" type="button"><span class="settings-row-label" data-i18n="account.signIn"><\/span>/);
+});
+
+test('the offline note is the first child of main, a hidden status with the offline icon (SYNC-11)', () => {
+  assert.match(body, /<main>\s*<p id="sync-offline" class="sync-note" role="status" hidden><svg class="icon small" aria-hidden="true"><use href="icons.svg#offline"\/><\/svg><span data-i18n="sync.offline"><\/span><\/p>/);
 });
 
 test('Backup ends with Delete all data, a danger row with no chevron (SET-2)', () => {

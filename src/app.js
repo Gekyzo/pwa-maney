@@ -9,7 +9,7 @@ import { bind as bindInstall, renderInstall } from '#ui/install';
 import { readVersion, renderVersion, offerUpdate } from '#ui/update';
 import { bind as bindOnboarding, closeOnboarding, turnOnboarding } from '#ui/onboarding';
 import { bind as bindWhatsNew, startWhatsNew, isWhatsNewOpen, closeWhatsNew } from '#ui/whatsnew';
-import { bind as bindAccount, renderAccount, startAccount, goOnline, isAccountOpen, closeAccount } from '#ui/account';
+import { bind as bindAccount, renderAccount, startAccount, goOnline, goOffline, goVisible, goStale, isAccountOpen, closeAccount } from '#ui/account';
 import { readOAuthReturn } from '#session';
 
 // The return of the Google sign-in (ACC-4): `code`, `state` and `error` leave the URL at once.
@@ -89,7 +89,13 @@ $('toast-action').addEventListener('click', () => {
 applyLanguage();
 if (ui.onboarding !== null) $('onboarding-next').focus();
 startAccount(oauth);
+// The account and the sync (ACC-1, SYNC-3): the start refreshes the session and runs the sync; so do
+// the `online` event and a return to the app.
 window.addEventListener('online', goOnline);
+window.addEventListener('offline', goOffline);
+document.addEventListener('visibilitychange', goVisible);
+// SYNC-12: a change of the stored doc or sync by another tab loads this tab again.
+window.addEventListener('storage', goStale);
 if (!storage) showToast(t('error.noStorage'));
 navigator.storage?.persist?.().catch(() => {});
 navigator.serviceWorker?.register('./sw.js').catch(() => {});

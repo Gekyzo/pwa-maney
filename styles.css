@@ -621,4 +621,42 @@
   .account-page > .button.accent {
     align-self: center;
   }
+
+  /* @component account-row
+     @scope settings
+     @summary The row Account (ACC-8): the email, and the last sync under it in the muted style. A long email breaks anywhere, not at a hyphen.
+     @example <div class="settings-row account-row" style="width: 100%"><span class="settings-row-label">ciro@example.test</span><span class="settings-row-value">Última sincronización: 2/11/26, 10:37</span></div> */
+  .settings .settings-row.account-row {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: var(--space-1);
+    padding-block: var(--space-2);
+  }
+
+  .settings .settings-row.account-row > .settings-row-label,
+  .settings .settings-row.account-row > .settings-row-value {
+    flex: none;
+    overflow-wrap: anywhere;
+    hyphens: none;
+  }
+
+  .settings .settings-row.account-row > .settings-row-value {
+    font-size: var(--text-s);
+  }
+
+  /* @component sync-note
+     @scope receipts, todos, summary
+     @summary The note over the sections while the sync cannot reach the server (SYNC-11): the changes stay saved on the device.
+     @example <p class="sync-note"><svg class="icon small" aria-hidden="true"><use href="icons.svg#offline"/></svg><span>Sin conexión · cambios guardados</span></p> */
+  .sync-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    margin: 0;
+    padding: var(--space-2) var(--space-4);
+    color: var(--muted);
+    font-size: var(--text-s);
+  }
 }

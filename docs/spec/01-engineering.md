@@ -5,7 +5,7 @@
 | Module | Responsibility | May import |
 |---|---|---|
 | `src/config.js` | The slug of the app, which `npm run init` rewrites, and the URL of the account server | nothing |
-| `src/pocketbase.js` | The client of the account server: Google sign-in, refresh, the access row (ACC-3) | `config` |
+| `src/pocketbase.js` | The client of the account server: Google sign-in, refresh, the access row (ACC-3), the records of `maney_records`: pull, push with the field-level merge, stream (SYNC-4) | `config`, `sync` |
 | `src/session.js` | The session on the device, the start route and the return from Google (ACC-1, ACC-4, ACC-5) | `storage` |
 | `src/version.js` | Version rules and the update offer rule | nothing |
 | `src/whatsnew.js` | The parse of the release notes and the versions that a user has not seen | `version` |
@@ -19,10 +19,13 @@
 | `src/receipts.js` | Pure receipt operations and the receipt validation | `todos`, `money` |
 | `src/summary.js` | The validation of the summary that maney pushes | `todos` |
 | `src/doc.js` | The doc of to-dos, receipts and the summary, and its validation | `storage`, `todos`, `receipts`, `summary` |
+| `src/records.js` | The doc as server records, and the diff of two sets of records, with no change of the summary (SYNC-1, SYNC-13) | nothing |
+| `src/sync.js` | The queue of changes, the merge of pulled records, the check of each record by its kind and the field-level merge of a push (SYNC-4 to SYNC-7) | `records`, `todos`, `receipts`, `summary` |
+| `src/syncer.js` | The sync driver: the queue of each save, the run, the retries, the token refresh, the stream, the status and the check of a change by another tab (SYNC-2 to SYNC-4, SYNC-11, SYNC-12) | `records`, `sync`, `session`, `pocketbase`, `doc`, `storage` |
 | `src/swipe.js` | The rule that settles the slide of a row (optional) | nothing |
 | `src/particles.js` | The particles of a picture and their place in time (optional) | nothing |
 | `src/onboarding.js` | The show rule and the page steps of the walkthrough (optional) | nothing |
-| `src/ui/context.js` | The values that the views share, the toast, `render`, `commit`, `replaceDoc` and `apply` | `doc`, `storage`, `i18n`, `onboarding` |
+| `src/ui/context.js` | The values that the views share, the toast, `render`, `commit`, `apply`, the hook of each save, `replaceDoc` (the doc that the sync puts in place) and the export file | `doc`, `storage`, `i18n`, `onboarding` |
 | `src/ui/controls.js` | The icon builder and the side-action button | `ui/context` |
 | `src/ui/motion.js` | Row collapse and expand animations | `ui/context` |
 | `src/ui/update.js` | The version line, the check, the refresh and the update toast | `version`, `i18n`, `ui/context` |
@@ -32,11 +35,11 @@
 | `src/ui/todos.js` | The To-dos section, its rows and its sheet (TODO-10) | `todos`, `i18n`, `ds/sheet`, `ui/context`, `ui/controls`, `ui/rows` |
 | `src/ui/receipts.js` | The Receipts section, its rows and its sheet (REC-5, REC-6) | `receipts`, `money`, `todos`, `i18n`, `ds/sheet`, `ui/context`, `ui/controls`, `ui/rows` |
 | `src/ui/summary.js` | The Summary section, read only (SUM-3) | `money`, `i18n`, `ui/context` |
-| `src/ui/settings.js` | Settings, Delete all data (SET-2), and the text of the page in its language | `doc`, `storage`, `i18n`, `modules`, `ui/context`, `ui/update`, `ui/onboarding`, `ui/account` |
+| `src/ui/settings.js` | Settings, Delete all data (SET-2, SYNC-10), the import (SYNC-9), and the text of the page in its language | `doc`, `storage`, `i18n`, `modules`, `ui/context`, `ui/update`, `ui/onboarding`, `ui/account` |
 | `src/ui/dust.js` | The dust of a navigation item (optional) | `particles`, `ui/context`, `ui/controls` |
 | `src/ui/onboarding.js` | The walkthrough (optional) | `onboarding`, `sections`, `storage`, `ui/context`, `ui/controls` |
 | `src/ui/whatsnew.js` | The release notes sheet, its Settings row and the seen version | `whatsnew`, `onboarding`, `i18n`, `storage`, `ds/sheet`, `ui/context` |
-| `src/ui/account.js` | The account screens and the group Account of Settings (ACC-1 to ACC-10) | `pocketbase`, `session`, `config`, `ui/context` |
+| `src/ui/account.js` | The account screens, the group Account of Settings, and the sync of the app: the login, the logout, the auth stop, the window events, the offline note and the overruled toast (ACC-1 to ACC-12, SYNC-3, SYNC-4, SYNC-10 to SYNC-12) | `pocketbase`, `syncer`, `session`, `config`, `i18n`, `ui/context` |
 | `src/app.js` | Wires the views, the global keys, the service worker and the update check | all of the above |
 
 ## Code rules
@@ -73,6 +76,7 @@
 The doc key is `maney.doc` ([10-todos.md](10-todos.md)). The device preferences are `maney.lang`,
 `maney.hand`, `maney.theme`, `maney.modules` and `maney.onboarded`. The account keeps `maney.session` (ACC-5) and
 `maney.offline` (ACC-10), and `maney.oauth` in `sessionStorage` for the time of a Google redirect (ACC-4).
+The sync keeps `maney.sync` and `maney.queue` ([09-sync.md](09-sync.md)).
 
 ## Change guide
 
@@ -98,7 +102,10 @@ The doc key is `maney.doc` ([10-todos.md](10-todos.md)). The device preferences 
 | `tests/receipts.test.js` | The receipt operations, their order and their validation (REC-2 to REC-4) |
 | `tests/summary.test.js` | The validation of the summary (SUM-1, SUM-2) |
 | `tests/doc.test.js` | The doc, its key and its validation (TODO-1, TODO-2, REC-1) |
-| `tests/pocketbase.test.js` | The client of the account server and its URL (ACC-3, ACC-4, ACC-6) |
+| `tests/pocketbase.test.js` | The client of the account server and its URL, the records, the push with its field-level merge and the stream (ACC-3, ACC-4, ACC-6, SYNC-4) |
+| `tests/records.test.js` | The doc as records, the doc back from them and the diff, with no summary change and the photo of a receipt delete (SYNC-1, SYNC-13) |
+| `tests/sync.test.js` | The queue, the merge of pulled records, tombstones, the cursor, the check of records by kind and `mergeFields` (SYNC-4 to SYNC-7) |
+| `tests/syncer.test.js` | The sync driver: the queue of a save, the run, the stops and retries, the refresh, the merge, the field-level merge of a push, the summary, the reset, the stream and two tabs (SYNC-2 to SYNC-6, SYNC-11 to SYNC-13) |
 | `tests/session.test.js` | The session, the start route, the offline flag, the pending sign-in and the return URL (ACC-1, ACC-4, ACC-5, ACC-10) |
 | `tests/storage.test.js` | Load, save, the corrupt copy, the lost doc, export, import and the device preferences |
 | `tests/install.test.js` | The install offer states (INS-1) |
@@ -112,7 +119,7 @@ The doc key is `maney.doc` ([10-todos.md](10-todos.md)). The device preferences 
 | `tests/whatsnew.test.js` | The parse of the release notes and the unseen versions |
 | `tests/release-notes-files.test.js` | One release-notes file for each language, with the same versions (VER-19) |
 | `tests/i18n.test.js` | The language choice, the translator, the parity of the catalogs |
-| `tests/markup.test.js` | `index.html` holds no text of its own; the sections, the module switches, the to-do sheet, the Receipts section and the receipt sheet, the Summary section, the walkthrough and the account markup |
+| `tests/markup.test.js` | `index.html` holds no text of its own; the sections, the module switches, the to-do sheet, the Receipts section and the receipt sheet, the Summary section, the walkthrough, the account markup and the offline note |
 | `tests/aliases.test.js` | The import map against `package.json`; each `#ds/` alias names a vendored module |
 | `tests/layers.test.js` | The layer rules and `SHELL` (ENG-16) |
 | `tests/design.test.js` | Each rule of `vendor/design-system/rules.js` over the two stylesheets, `index.html`, `icons.svg`, `src/ui/` and `designs/`, and the parts of `styles.css` (DSV-3) |

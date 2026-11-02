@@ -13,6 +13,8 @@ import {
   loadOnboarded,
   hasStoredDoc,
   isDocLost,
+  exportJson,
+  exportFilename,
 } from '#storage';
 import { LANGUAGES, resolveLanguage, translator } from '#i18n';
 import { shouldShow } from '#onboarding';
@@ -137,14 +139,15 @@ export const setOnSave = (fn) => {
   onSave = fn;
 };
 
-export const commit = (next) => {
+// `explicit` marks an import (SYNC-9): its save deletes the records of the account that it lacks.
+export const commit = (next, { explicit = false } = {}) => {
   state = next;
   const saved = storage !== null && saveDoc(storage, DOC_KEY, state);
   render();
   // After the render: an error of the hook never leaves the screen behind the state.
   if (saved) {
     try {
-      onSave(state);
+      onSave(state, { explicit });
     } catch (error) {
       console.error(error);
     }
@@ -152,7 +155,7 @@ export const commit = (next) => {
   return saved;
 };
 
-// Puts a doc that the sync merged in place: it is saved and shown, but it is not a save of the
+// Puts a doc that the sync merged in place (SYNC-2): it is saved and shown, but it is not a save of the
 // user, so the hook does not run. A doc that cannot be saved changes nothing and gives false, so the
 // doc in memory stays the stored one.
 export const replaceDoc = (next) => {
@@ -165,18 +168,27 @@ export const replaceDoc = (next) => {
 };
 
 // Applies a pure operation. `undoText` makes the change reversible for a few seconds.
-export const apply = (result, { undoText = null } = {}) => {
+export const apply = (result, { undoText = null, explicit = false } = {}) => {
   if (result.error) {
     showToast(textOf(result.error));
     return false;
   }
   const previous = state;
-  const saved = commit(result.state);
+  const saved = commit(result.state, { explicit });
   if (!saved) showToast(t('error.notSaved'));
   else if (undoText) showToast(undoText, { undo: previous });
   else hideToast();
   return true;
 };
+
+const download = (filename, text) => {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  el('a', { href: url, download: filename }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// The backup file of a doc (SET-1), also offered before a login or a logout loses changes (ACC-11, ACC-12).
+export const exportDoc = (doc) => download(exportFilename(new Date()), exportJson(doc));
 
 // The click that follows a drag, a drop or a slide must not press the button below the finger.
 export let clickGuardUntil = 0;

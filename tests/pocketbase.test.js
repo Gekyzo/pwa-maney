@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createClient, PocketBaseError } from '#pocketbase';
 import { apiUrl, LOCAL_API, PRODUCTION_API } from '#config';
+import { mergeFields } from '#sync';
 
 const URL_ = 'https://pb.test';
 const reply = (status, body) => ({ ok: status < 400, status, json: async () => body });
@@ -118,4 +119,179 @@ test('the errors have a type: network, auth, rate, server', async () => {
 test('a body that is not JSON is a server error', async () => {
   const { client } = fake({ ok: true, status: 200, json: async () => { throw new SyntaxError('x'); } });
   await assert.rejects(client.refresh('T'), { type: 'server' });
+});
+
+// The records (SYNC-4).
+const rec = (over = {}) => ({ id: 'r1', kind: 'todo', key: 't1', data: { text: 'Pay' }, deleted: false, updated: '2026-01-01 00:00:00.000Z', ...over });
+const page = (items, totalPages = 1) => reply(200, { items, page: 1, totalPages });
+const upsert = { op: 'upsert', kind: 'todo', key: 't1', data: { text: 'Pay' } };
+const remove = { op: 'delete', kind: 'todo', key: 't1' };
+const known = { updated: '2026-01-01 00:00:00.000Z', data: { text: 'Pay' } };
+
+test('pull sends the owner and cursor filter and walks every page sorted by updated (SYNC-4)', async () => {
+  const { calls, client } = fake(page([rec({ id: 'a' })], 2), page([rec({ id: 'b' })], 2));
+  const records = await client.pull('T', '2026-01-01 00:00:00.000Z', 'u1');
+  assert.deepEqual(records.map(({ id }) => id), ['a', 'b']);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url.pathname, '/api/collections/maney_records/records');
+  assert.equal(calls[0].url.searchParams.get('filter'), 'owner = "u1" && updated >= "2026-01-01 00:00:00.000Z"');
+  assert.equal(calls[0].url.searchParams.get('sort'), 'updated');
+  assert.equal(calls[0].url.searchParams.get('perPage'), '200');
+  assert.deepEqual([calls[0].url.searchParams.get('page'), calls[1].url.searchParams.get('page')], ['1', '2']);
+  assert.equal(calls[0].headers.Authorization, 'T');
+});
+
+test('pull with no cursor filters by owner only and keeps the fields of a record (SYNC-4)', async () => {
+  const { calls, client } = fake(page([{ ...rec(), owner: 'u1', extra: 1, deleted: undefined }]));
+  const [first] = await client.pull('T', '', 'u1');
+  assert.equal(calls[0].url.searchParams.get('filter'), 'owner = "u1"');
+  assert.deepEqual(first, rec({ deleted: false }));
+});
+
+test('pull and push without an owner throw an auth error with no request (SYNC-4)', async () => {
+  const { calls, client } = fake();
+  await assert.rejects(client.pull('T', '', ''), { type: 'auth' });
+  await assert.rejects(client.push('T', upsert, '', null), { type: 'auth' });
+  assert.equal(calls.length, 0);
+});
+
+test('push with the known updated patches the change as it is', async () => {
+  const { calls, client } = fake(page([rec()]), reply(200, rec({ data: { text: 'New' } })));
+  const result = await client.push('T', { ...upsert, data: { text: 'New' } }, 'u1', known);
+  assert.equal(calls[0].url.searchParams.get('filter'), 'owner = "u1" && kind = "todo" && key = "t1"');
+  assert.equal(calls[1].method, 'PATCH');
+  assert.equal(calls[1].url.pathname, '/api/collections/maney_records/records/r1');
+  assert.deepEqual(calls[1].body, { deleted: false, data: { text: 'New' } });
+  assert.deepEqual(result, { rec: rec({ data: { text: 'New' } }), overruled: [] });
+});
+
+test('push of a change whose record moved on the server patches the merged data', async () => {
+  const baseData = { text: 'a', due: null, done: false, doneAt: null };
+  const found = rec({ updated: '2026-11-02 10:00:01.000Z', data: { ...baseData, done: true, doneAt: '2026-11-02T10:00:01Z' } });
+  const change = { ...upsert, data: { ...baseData, text: 'b' } };
+  const merged = mergeFields(found.data, baseData, change.data).data;
+  const { calls, client } = fake(page([found]), reply(200, rec({ data: merged })));
+  const result = await client.push('T', change, 'u1', { updated: '2026-11-02 10:00:00.000Z', data: baseData });
+  assert.deepEqual(calls.map(({ method }) => method), ['GET', 'PATCH']);
+  assert.deepEqual(calls[1].body, { deleted: false, data: merged });
+  assert.deepEqual(calls[1].body.data, { text: 'b', due: null, done: true, doneAt: '2026-11-02T10:00:01Z' });
+  assert.deepEqual(result.overruled, []);
+});
+
+test('push of a field changed on both sides keeps the server value and names it overruled (SYNC-4)', async () => {
+  const { calls, client } = fake(page([rec({ updated: '2026-01-02 00:00:00.000Z', data: { text: 'Theirs' } })]), reply(200, rec({ data: { text: 'Theirs' } })));
+  const result = await client.push('T', { ...upsert, data: { text: 'Mine' } }, 'u1', known);
+  assert.deepEqual(calls[1].body, { deleted: false, data: { text: 'Theirs' } });
+  assert.deepEqual(result.overruled, ['text']);
+});
+
+test('push of a found record with base null merges as changed on both sides (SYNC-4)', async () => {
+  const { calls, client } = fake(page([rec()]), reply(200, rec()));
+  const result = await client.push('T', upsert, 'u1', null);
+  assert.deepEqual(calls[1].body, { deleted: false, data: { text: 'Pay' } });
+  assert.deepEqual(result.overruled, []);
+});
+
+test('push of an upsert on a tombstoned record patches deleted false with the data (SYNC-4)', async () => {
+  const { calls, client } = fake(page([rec({ deleted: true })]), reply(200, rec()));
+  const result = await client.push('T', upsert, 'u1', known);
+  assert.deepEqual(calls[1].body, { deleted: false, data: { text: 'Pay' } });
+  assert.equal(result.rec.deleted, false);
+});
+
+test('push of a delete patches deleted true whatever the updated', async () => {
+  for (const base of [known, { ...known, updated: '2025-01-01 00:00:00.000Z' }, null]) {
+    const { calls, client } = fake(page([rec({ updated: '2026-03-01 00:00:00.000Z' })]), reply(200, rec({ deleted: true })));
+    const result = await client.push('T', { ...remove, photo: null }, 'u1', base);
+    assert.deepEqual(calls[1].body, { deleted: true });
+    assert.deepEqual(result, { rec: rec({ deleted: true }), overruled: [] });
+  }
+});
+
+test('push of a delete with no record gives no record and posts nothing (SYNC-4)', async () => {
+  const { calls, client } = fake(page([]));
+  assert.deepEqual(await client.push('T', remove, 'u1', null), { rec: null, overruled: [] });
+  assert.equal(calls.length, 1);
+});
+
+test('push of a new record with base null posts it', async () => {
+  const { calls, client } = fake(page([]), reply(200, rec()));
+  const result = await client.push('T', upsert, 'u1', null);
+  assert.equal(result.rec.id, 'r1');
+  assert.deepEqual(result.overruled, []);
+  assert.equal(calls[1].method, 'POST');
+  assert.deepEqual(calls[1].body, { owner: 'u1', kind: 'todo', key: 't1', deleted: false, data: { text: 'Pay' } });
+});
+
+test('push whose post is a duplicate finds the record again and patches it (SYNC-4)', async () => {
+  const { calls, client } = fake(page([]), unique, page([rec()]), reply(200, rec()));
+  await client.push('T', upsert, 'u1', null);
+  assert.deepEqual(calls.map(({ method }) => method), ['GET', 'POST', 'GET', 'PATCH']);
+});
+
+test('push whose post fails for another reason rethrows it (SYNC-4)', async () => {
+  const { calls, client } = fake(page([]), reply(400, {}));
+  await assert.rejects(client.push('T', upsert, 'u1', null), { type: 'invalid' });
+  assert.equal(calls.length, 2);
+});
+
+test('push whose duplicate post finds nothing rethrows the duplicate (SYNC-4)', async () => {
+  const { client } = fake(page([]), unique, page([]));
+  await assert.rejects(client.push('T', upsert, 'u1', null), { status: 400 });
+});
+
+// A fake EventSource: the test fires its events.
+const stream = () => {
+  const sources = [];
+  class EventSource {
+    constructor(url) {
+      this.url = url;
+      this.handlers = {};
+      this.closed = false;
+      sources.push(this);
+    }
+    addEventListener(name, handler) { this.handlers[name] = handler; }
+    close() { this.closed = true; }
+  }
+  return { sources, EventSource };
+};
+
+test('subscribe posts the subscription with the current token at each connect and reports a reconnect (SYNC-4)', async () => {
+  const { sources, EventSource } = stream();
+  const calls = [];
+  const fetch = async (url, init) => { calls.push({ url: new globalThis.URL(url), body: JSON.parse(init.body), headers: init.headers }); return { ok: true, status: 204, json: async () => { throw new SyntaxError('x'); } }; };
+  const client = createClient({ url: URL_, fetch, EventSource });
+  let token = 'T1';
+  let reconnects = 0;
+  const close = client.subscribe(() => token, () => {}, { onReconnect: () => { reconnects += 1; } });
+  assert.equal(sources[0].url, `${URL_}/api/realtime`);
+  await sources[0].handlers.PB_CONNECT({ data: '{"clientId":"c1"}' });
+  assert.equal(reconnects, 0);
+  assert.deepEqual(calls[0].body, { clientId: 'c1', subscriptions: ['maney_records'] });
+  assert.equal(calls[0].headers.Authorization, 'T1');
+  token = 'T2';
+  await sources[0].handlers.PB_CONNECT({ data: '{"clientId":"c2"}' });
+  assert.equal(reconnects, 1);
+  assert.equal(calls[1].headers.Authorization, 'T2');
+  close();
+  assert.equal(sources[0].closed, true);
+});
+
+test('subscribe gives a record, a delete action as deleted true, and drops a malformed event (SYNC-4)', () => {
+  const { sources, EventSource } = stream();
+  const client = createClient({ url: URL_, fetch: async () => reply(204, null), EventSource });
+  const got = [];
+  client.subscribe('T', (record) => got.push(record));
+  const fire = sources[0].handlers.maney_records;
+  fire({ data: JSON.stringify({ action: 'update', record: { ...rec(), owner: 'u1' } }) });
+  fire({ data: JSON.stringify({ action: 'delete', record: rec() }) });
+  fire({ data: 'not json' });
+  assert.deepEqual(got, [rec(), rec({ deleted: true })]);
+});
+
+test('subscribe survives a failed subscription post (SYNC-4)', async () => {
+  const { sources, EventSource } = stream();
+  const client = createClient({ url: URL_, fetch: async () => { throw new Error('offline'); }, EventSource });
+  client.subscribe('T', () => {});
+  await sources[0].handlers.PB_CONNECT({ data: '{"clientId":"c1"}' });
 });
