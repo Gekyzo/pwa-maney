@@ -273,25 +273,40 @@ export const createSyncer = ({
   // queue is saved at once, so a run that stops resends nothing as a new record.
   // SYNC-14: the pending photo of a receipt upsert goes first; a failed upload stops the run as a
   // failed push does, and the receipt waits in the queue. Resolves to the change to push, or to the
-  // result of the run. SYNC-16: a photo that the server refuses with field errors leaves the store,
-  // and the receipt goes with `photo: null`.
+  // result of the run. SYNC-16: a photo that the server refuses with field errors is forgotten first:
+  // the queued change, the base and the doc take `photo: null` and are saved, so a push that fails
+  // after this never names a key with no file. Only then the photo leaves the store.
+  const forget = (change, key) => {
+    const forgotten = { ...change, data: { ...change.data, photo: null } };
+    queue = queue.map((queued) => (queued === change ? forgotten : queued));
+    const id = recordKey(change.kind, change.key);
+    const based = sync.local.get(id);
+    if (based?.data?.photo === key) sync = { ...sync, local: new Map(sync.local).set(id, { ...based, data: { ...based.data, photo: null } }) };
+    const doc = getDoc();
+    if (doc.receipts.some(({ id: receipt, photo }) => receipt === change.key && photo === key)) {
+      put({ ...doc, receipts: doc.receipts.map((receipt) => (receipt.id === change.key && receipt.photo === key ? { ...receipt, photo: null } : receipt)) });
+    }
+    persist();
+    return forgotten;
+  };
+
   const withPhoto = async (token, change, live) => {
     const key = change.kind === 'receipt' && change.op === 'upsert' ? change.data?.photo : null;
     if (!key) return { change };
     const blob = await photos.get(key);
     if (!blob) return { change };
-    let refused = false;
+    let sent = change;
     try {
       await client.uploadPhoto(token, { key, blob }, sync.owner);
     } catch (error) {
       if (!live()) return { stop: STALE };
       if (!badData(known(error))) return { stop: stopOf(error) };
       console.error('sync: the server refuses the photo', key, error.fields);
-      refused = true;
+      sent = forget(change, key);
     }
     if (!live()) return { stop: STALE };
     await photos.remove(key);
-    return { change: refused ? { ...change, data: { ...change.data, photo: null } } : change };
+    return { change: sent };
   };
 
   const pushAll = async (token, live) => {
@@ -319,7 +334,7 @@ export const createSyncer = ({
       const replaced = rec && before && rec.data?.photo !== before && !sync.dropped.includes(before);
       sync = { ...sync, server, ...(replaced ? { dropped: [...sync.dropped, before] } : {}) };
       // By identity: a save during the push may have replaced the change with a newer one.
-      queue = queue.filter((queued) => queued !== change);
+      queue = queue.filter((queued) => queued !== sent.change);
       persist();
       // The change left the queue, so the pull of this run puts the merged value in place.
       if (overruled.length > 0) onOverruled(overruled);
@@ -357,8 +372,9 @@ export const createSyncer = ({
   const sweepStart = async () => {
     if (swept) return;
     swept = true;
+    const keys = await photos.keys();
     const doc = getDoc();
-    for (const key of orphanPhotos(await photos.keys(), doc, queue)) await photos.remove(key);
+    for (const key of orphanPhotos(keys, doc, queue)) await photos.remove(key);
     sweep = gonePhotos(sync.server, doc, sync.gone, sync.dropped);
   };
 

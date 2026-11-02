@@ -147,8 +147,11 @@ runs the sync; it takes the client, the storage, the clock and the timer as para
   receipt back within the same start; a photo of a receipt deleted in this start waits for the
   next start.
 - **SYNC-16** A photo that the server refuses with field errors (a 400 with field errors, such as
-  a wrong type or a size above 10 MB) leaves the store and is logged, and its receipt is pushed with
-  `photo: null`. The pull of the same run puts `photo: null` in the doc.
+  a wrong type or a size above 10 MB) is logged and forgotten before its receipt is pushed: the
+  queued change, the base and the doc take `photo: null` and are saved, and only then the photo
+  leaves the store. So a push that fails after this sends `photo: null` at the next run, with no
+  file call, and never a key with no file. A photo that uploaded and whose push then failed is not
+  uploaded again: the next run pushes the receipt only.
 
 ## Status
 

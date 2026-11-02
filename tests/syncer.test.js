@@ -1223,7 +1223,7 @@ test('a photo the server refuses with field errors is dropped and the receipt go
   const d = device();
   await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
   d.client.failUpload = () => new PocketBaseError('invalid', 400, { photo: { code: 'validation_invalid_mime_type' } });
-  assert.equal(await d.syncer.run(), 'ok');
+  assert.equal(await quiet(() => d.syncer.run()), 'ok');
   assert.deepEqual(await d.photos.keys(), []);
   assert.equal(d.client.pushed[0].data.photo, null);
   assert.equal(d.server.rows[0].data.photo, null);
@@ -1239,4 +1239,40 @@ test('Delete all data clears the photo store (SYNC-10)', async () => {
   await d.syncer.reset();
   assert.deepEqual(await d.photos.keys(), []);
   assert.equal(storedSync(d.storage), null);
+});
+
+test('a refused photo followed by a failed push sends the receipt with photo null at the next run and no file call (SYNC-16)', async () => {
+  const d = device();
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  d.client.failUpload = () => new PocketBaseError('invalid', 400, { photo: { code: 'validation_invalid_mime_type' } });
+  d.client.failPush = () => new PocketBaseError('network');
+  assert.equal(await quiet(() => d.syncer.run()), 'offline');
+  assert.deepEqual(await d.photos.keys(), []);
+  assert.deepEqual(storedQueue(d.storage).map(({ data }) => data.photo), [null]);
+  assert.equal(d.box.doc.receipts[0].photo, null);
+  d.client.failUpload = null;
+  d.client.failPush = null;
+  d.client.order.length = 0;
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.deepEqual(d.client.order, ['push:receipt:r1']);
+  assert.equal(d.server.rows[0].data.photo, null);
+  assert.deepEqual(d.server.files, []);
+  assert.equal(d.box.doc.receipts[0].photo, null);
+  assert.deepEqual(storedQueue(d.storage), []);
+});
+
+test('an uploaded photo followed by a failed push sends the receipt at the next run with no new upload (SYNC-14)', async () => {
+  const d = device();
+  await saveWithPhoto(d, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  d.client.failPush = () => new PocketBaseError('network');
+  assert.equal(await d.syncer.run(), 'offline');
+  assert.deepEqual(d.client.order, ['uploadPhoto:p1', 'push:receipt:r1']);
+  assert.deepEqual(await d.photos.keys(), []);
+  assert.equal(storedQueue(d.storage).length, 1);
+  d.client.failPush = null;
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.deepEqual(d.client.order, ['uploadPhoto:p1', 'push:receipt:r1', 'push:receipt:r1']);
+  assert.equal(d.server.rows[0].data.photo, 'p1');
+  assert.equal(d.server.files.length, 1);
+  assert.deepEqual(storedQueue(d.storage), []);
 });
