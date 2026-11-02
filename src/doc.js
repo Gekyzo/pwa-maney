@@ -26,3 +26,7 @@ export const normalizeDoc = (data) => {
   const summary = normalizeSummary(data.summary);
   return summary ? { version: 1, todos, receipts, summary } : null;
 };
+
+// SYNC-9, SYNC-13: an import takes the to-dos and the receipts of the file; the summary is the one of
+// the device, as only maney writes it.
+export const importedDoc = (imported, current) => ({ ...imported, summary: current.summary });

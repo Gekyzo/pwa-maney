@@ -85,7 +85,10 @@ runs the sync; it takes the client, the storage, the clock and the timer as para
   all data, or a login of another user) makes a run in progress stale: it saves nothing and
   changes no doc (SYNC-10).
 - **SYNC-5** A change that waits in the queue wins. A pulled record with the same id does not
-  change the local record. The copy of the server still takes the pulled record.
+  change the local record, nor the copy of the server: that copy stays the base of the push, so
+  the push finds the record moved since the base and merges field by field (SYNC-4). So a `done`
+  that maney set while the phone edited the text survives the push, with no toast. The push then
+  gives the new copy of the server.
 - **SYNC-6** A pulled record with `deleted` counts as absent. It removes the local record, unless
   a change of that record waits in the queue. A pulled summary tombstone empties the summary.
 - **SYNC-7** The app checks each record alone, by its kind: a to-do as `normalizeTodo`, a receipt
@@ -108,8 +111,9 @@ runs the sync; it takes the client, the storage, the clock and the timer as para
   tombstone for each to-do and receipt of the account that the device knows and the import does
   not hold, and an upsert for the others, with no regard to the guard of SYNC-2. A record that
   another client added after the last sync, or a pulled record that the check dropped (SYNC-7), is
-  not known: it stays on the server. The first comes into the doc at the next pull. The summary of
-  the import is not sent (SYNC-13).
+  not known: it stays on the server. The first comes into the doc at the next pull. The import
+  keeps the summary of the device (`importedDoc` of `src/doc.js`): the summary of the file does not
+  replace it, and it is not sent (SYNC-13).
 - **SYNC-10** **Delete all data** (SET-2) clears this device only. The sync stops first, before
   the storage is removed: a run in progress becomes stale and saves nothing, the timers and the
   stream stop, and the queue is dropped. The driver sends nothing; it removes the session, the

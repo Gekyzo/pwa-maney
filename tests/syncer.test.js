@@ -1350,3 +1350,25 @@ test('an edit of a receipt whose photo the server copy names makes no file call 
   assert.deepEqual(d.client.order, ['push:receipt:r1']);
   assert.equal(d.server.rows[0].data.photo, 'p1');
 });
+
+test('a pull during a save keeps the base of the queued change, so its push merges and keeps the done of maney (SYNC-4, SYNC-5)', async () => {
+  const d = await syncedTodo();
+  d.server.edit('todo', 'a', { done: true, doneAt: DONE_AT });
+  const held = gate();
+  const arrived = gate();
+  d.client.hold = () => {
+    arrived.open();
+    return held.opened;
+  };
+  const running = d.syncer.run();
+  await arrived.opened;
+  // The phone edits the text while the pull of maney's done is on the way.
+  d.save(docOf(todo('a', 'Pay the rent')));
+  held.open();
+  assert.equal(await running, 'ok');
+  d.client.hold = null;
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.deepEqual(d.server.rows[0].data, { text: 'Pay the rent', due: null, done: true, doneAt: DONE_AT });
+  assert.deepEqual(d.box.doc.todos, [{ id: 'a', text: 'Pay the rent', due: null, done: true, doneAt: DONE_AT }]);
+  assert.deepEqual(d.box.overruled, []);
+});

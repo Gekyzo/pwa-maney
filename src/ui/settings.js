@@ -1,4 +1,4 @@
-import { normalizeDoc } from '#doc';
+import { normalizeDoc, importedDoc } from '#doc';
 import { importJson, resetAll } from '#storage';
 import { LANGUAGES, LANGUAGE_NAMES } from '#i18n';
 import { switchModule } from '#modules';
@@ -120,6 +120,6 @@ export const bind = () => {
     const receipts = t('receipts.count', { count: result.state.receipts.length });
     // SYNC-9: with a session the import replaces the receipts and to-dos of the account, on every device.
     if (!window.confirm(t(signedIn() ? 'import.confirmAccount' : 'import.confirm', { todos, receipts }))) return;
-    apply(result, { undoText: t('toast.imported'), explicit: true });
+    apply({ state: importedDoc(result.state, state) }, { undoText: t('toast.imported'), explicit: true });
   });
 };

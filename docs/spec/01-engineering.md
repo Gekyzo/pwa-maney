@@ -18,7 +18,7 @@
 | `src/todos.js` | Pure to-do operations, the real-date and real-time checks, the late rule and the to-do validation | nothing |
 | `src/receipts.js` | Pure receipt operations and the receipt validation | `todos`, `money` |
 | `src/summary.js` | The validation of the summary that maney pushes | `todos` |
-| `src/doc.js` | The doc of to-dos, receipts and the summary, and its validation | `storage`, `todos`, `receipts`, `summary` |
+| `src/doc.js` | The doc of to-dos, receipts and the summary, its validation, and the doc of an import (SYNC-9) | `storage`, `todos`, `receipts`, `summary` |
 | `src/records.js` | The doc as server records, and the diff of two sets of records, with no change of the summary (SYNC-1, SYNC-13) | nothing |
 | `src/sync.js` | The queue of changes, the merge of pulled records, the check of each record by its kind and the field-level merge of a push (SYNC-4 to SYNC-7) | `records`, `todos`, `receipts`, `summary` |
 | `src/syncer.js` | The sync driver: the queue of each save, the run, the retries, the token refresh, the stream, the status and the check of a change by another tab (SYNC-2 to SYNC-4, SYNC-11, SYNC-12); the photo before its receipt, the sweep of a start and a refused photo (SYNC-14 to SYNC-16) | `records`, `sync`, `session`, `pocketbase`, `doc`, `storage`, `photos`, `photostore` |
@@ -105,7 +105,7 @@ upload are in the IndexedDB database `maney.photos` ([07-receipts.md](07-receipt
 | `tests/todos.test.js` | The to-do operations, their order, the late rule and their validation (TODO-1, TODO-3, TODO-5, TODO-6, TODO-10) |
 | `tests/receipts.test.js` | The receipt operations, their order and their validation (REC-2 to REC-4) |
 | `tests/summary.test.js` | The validation of the summary (SUM-1, SUM-2) |
-| `tests/doc.test.js` | The doc, its key and its validation (TODO-1, TODO-2, REC-1) |
+| `tests/doc.test.js` | The doc, its key, its validation and the doc of an import (TODO-1, TODO-2, REC-1, SYNC-9) |
 | `tests/pocketbase.test.js` | The client of the account server and its URL, the records, the push with its field-level merge and the stream (ACC-3, ACC-4, ACC-6, SYNC-4); the multipart upload, the find and the tombstone of a photo, the file token and the photo address (SYNC-14, SYNC-15) |
 | `tests/records.test.js` | The doc as records, the doc back from them and the diff, with no summary change and the photo of a receipt delete (SYNC-1, SYNC-13) |
 | `tests/sync.test.js` | The queue, the merge of pulled records, tombstones, the cursor, the check of records by kind and `mergeFields` (SYNC-4 to SYNC-7) |

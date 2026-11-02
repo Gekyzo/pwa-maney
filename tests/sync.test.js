@@ -24,12 +24,15 @@ test('enqueue leaves its inputs alone (SYNC-5)', () => {
   assert.equal(queue.length, 1);
 });
 
-test('a queued key ignores the pulled record, and the server copy updates (SYNC-5)', () => {
+test('a queued key ignores the pulled record, and its server copy stays the base of the push (SYNC-5)', () => {
   const local = new Map([['todo:a', { kind: 'todo', key: 'a', data: { text: 'mine' } }]]);
-  const pulled = [rec('a', 'theirs', '2026-01-02')];
-  const merged = mergePulled({ local, server: new Map(), queue: [up('a', 'mine')], pulled });
+  const server = new Map([['todo:a', rec('a', 'base', '2026-01-01')]]);
+  const pulled = [rec('a', 'theirs', '2026-01-02'), rec('b', 'other', '2026-01-03')];
+  const merged = mergePulled({ local, server, queue: [up('a', 'mine')], pulled });
   assert.equal(merged.local.get('todo:a').data.text, 'mine');
-  assert.equal(merged.server.get('todo:a').data.text, 'theirs');
+  assert.deepEqual(merged.server.get('todo:a'), rec('a', 'base', '2026-01-01'));
+  assert.equal(merged.server.get('todo:b').data.text, 'other');
+  assert.equal(server.get('todo:a').data.text, 'base');
 });
 
 test('a pulled record with no queued change replaces the local one (SYNC-5)', () => {

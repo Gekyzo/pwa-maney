@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { APP_SLUG } from '#config';
-import { DOC_KEY, emptyDoc, normalizeDoc, isDate } from '#doc';
+import { DOC_KEY, emptyDoc, normalizeDoc, isDate, importedDoc } from '#doc';
 
 const todo = (id) => ({ id, text: id, due: null, done: false, doneAt: null });
 const receipt = (id) => ({ id, takenOn: '2026-11-01', amountCents: 100, shop: '', note: '', photo: null });
@@ -53,4 +53,12 @@ test('normalizeDoc refuses a doc that is not valid', () => {
 
 test('a to-do and a receipt may share an id', () => {
   assert.notEqual(normalizeDoc({ ...emptyDoc(), todos: [todo('a')], receipts: [receipt('a')] }), null);
+});
+
+test('an import takes the to-dos and receipts of the file and keeps the summary of the device (SYNC-9, SYNC-13)', () => {
+  const current = { version: 1, todos: [todo('old')], receipts: [], summary: summary() };
+  const file = { version: 1, todos: [todo('a')], receipts: [receipt('r')], summary: null };
+  assert.deepEqual(importedDoc(file, current), { version: 1, todos: [todo('a')], receipts: [receipt('r')], summary: summary() });
+  const other = { ...summary(), month: '2026-10' };
+  assert.deepEqual(importedDoc({ ...file, summary: other }, { ...current, summary: null }).summary, null);
 });

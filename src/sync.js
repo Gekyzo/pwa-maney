@@ -20,15 +20,17 @@ export const enqueue = (queue, changes) => {
 
 const plain = ({ kind, key, data }) => ({ kind, key, data });
 
-// SYNC-5: a queued change wins over a pulled record. SYNC-6: a pulled record with `deleted` removes the record.
+// SYNC-5: a queued change wins over a pulled record, and its server copy stays as it was: it is the
+// base of the push, so the push merges the pulled change field by field (SYNC-4). SYNC-6: a pulled
+// record with `deleted` removes the record.
 export const mergePulled = ({ local, server, queue, pulled }) => {
   const queued = new Set(queue.map(changeKey));
   const nextLocal = new Map(local);
   const nextServer = new Map(server);
   for (const rec of pulled) {
     const id = recordKey(rec.kind, rec.key);
-    nextServer.set(id, rec);
     if (queued.has(id)) continue;
+    nextServer.set(id, rec);
     if (rec.deleted) nextLocal.delete(id);
     else nextLocal.set(id, plain(rec));
   }
