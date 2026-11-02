@@ -1,0 +1,23 @@
+#!/bin/sh
+# docs/spec/ states what the app does. A commit that changes the app without a change of the
+# specification stops here, so that the question "did a rule change?" has an answer at each commit.
+# The app is src/, sw.js, index.html and manifest.webmanifest. A catalog of src/locales/ counts
+# only when it is es.js, the source wording that the specification quotes.
+# Enable: npm run hooks. A commit that changes no rule: git commit --no-verify.
+
+staged=$(git diff --cached --name-only --diff-filter=ACMRD) || exit 0
+
+app=$(printf '%s\n' "$staged" |
+  grep -E '^(src/|sw\.js$|index\.html$|manifest\.webmanifest$)' |
+  grep -Ev '^src/locales/' ; printf '%s\n' "$staged" | grep -E '^src/locales/es\.js$')
+
+[ -n "$app" ] || exit 0
+printf '%s\n' "$staged" | grep -q '^docs/spec/' && exit 0
+
+{
+  echo 'pre-commit: the commit changes the app, but not docs/spec/:'
+  printf '%s\n' "$app" | sed 's/^/  /'
+  echo 'Change the rule in docs/spec/ and stage it. For a commit that changes no rule,'
+  echo 'run git commit --no-verify and say so in the commit body.'
+} >&2
+exit 1

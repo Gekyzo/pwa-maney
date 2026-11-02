@@ -1,0 +1,11 @@
+{
+  "version": "0.7.2",
+  "commit": "4dd6ea9f0f55180811a0a0af6abcaff7bbf103e2",
+  "files": {
+    "design-system.css": "495aba3b123a7dccd47671b62e63ef8ff939ced2bd89b70a0069126f694685a4",
+    "catalog.js": "5615ead0966cabcb62ebf1f64f128f9176672766a40194245ad892c0110a9d22",
+    "rules.js": "aa8a48dfcdbc51b90dca0d70b2c7442b26c9c6c5b921f52b701460f87e50d779",
+    "sheet.js": "98e27e1ddb882500c4b0ebc6b21ab9197b60a0c62133162d54b5e8edcc2df686",
+    "geist.woff2": "28258d0621216948416a859d32487ab6ad1c9effa0d08795698e70be3c917630"
+  }
+}

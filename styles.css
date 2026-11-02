@@ -1,0 +1,458 @@
+@layer tokens, base, components, layouts, screens;
+
+@layer tokens {
+  :root {
+    /* The colour of the app: one green for the main action, the walkthrough art and the checked state. */
+    --primary: var(--done);
+    --on-primary: var(--on-done);
+  }
+}
+
+@layer base {
+  body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    background: var(--bg);
+    color: var(--text);
+    font: var(--text-m)/1.4 var(--font);
+    -webkit-tap-highlight-color: transparent;
+    /* The page keeps out of a cutout on either side (LAY-4); from 600px the rail takes its side. */
+    padding-inline-start: env(safe-area-inset-left);
+    padding-inline-end: env(safe-area-inset-right);
+  }
+
+  button,
+  input {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* From 600px the fixed rail stands at the side of the hand (LAY-2): the body pads that side (LAY-4). */
+  @media (min-width: 600px) {
+    body {
+      padding-right: calc(var(--rail-width) + env(safe-area-inset-right));
+    }
+
+    [data-hand="left"] body {
+      padding-right: env(safe-area-inset-right);
+      padding-left: calc(var(--rail-width) + env(safe-area-inset-left));
+    }
+  }
+}
+
+@layer screens {
+  /* @component version-status
+     @scope settings
+     @summary The state of the installed version: a sign, and a text for the outdated state only.
+     @part version-status-text  The text of the state. With a sign it stays for screen readers only.
+     @example <span class="version-status" data-status="current" role="status"><svg data-for="current" class="icon small" aria-hidden="true"><use href="icons.svg#check-circle"/></svg><span class="version-status-text">Up to date</span></span> */
+  .version-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .version-status [data-for] {
+    display: none;
+  }
+
+  .version-status[data-status='checking'] [data-for='checking'],
+  .version-status[data-status='current'] [data-for='current'],
+  .version-status[data-status='outdated'] [data-for='outdated'],
+  .version-status[data-status='unknown'] [data-for='unknown'] {
+    display: block;
+  }
+
+  .version-status[data-status='checking'] .icon {
+    animation: spin var(--motion-slow) linear infinite;
+  }
+
+  .version-status[data-status='current'] {
+    color: var(--done);
+  }
+
+  .version-status[data-status='outdated'] {
+    flex-basis: 100%;
+    justify-content: center;
+    color: var(--warning);
+  }
+
+  .version-status[data-status='unknown'] {
+    color: var(--danger);
+  }
+
+  .version-status:not([data-status='outdated']) .version-status-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  /* @component settings
+     @scope settings
+     @summary The Settings section: groups of settings rows (list-group) under a list-group-head, then the about lines. One centred column from 600px. A row of Preferences holds a real select laid over it, so a tap opens the native picker.
+     @example <section class="settings" style="width: 100%"><h2 class="list-group-head">Preferences</h2><div class="list-group"><div class="settings-row"><span class="settings-row-label">Language</span><span class="settings-row-value">English</span><span class="chevron" aria-hidden="true">›</span><select class="select" aria-label="Language"><option>English</option></select></div></div></section> */
+  .settings {
+    width: 100%;
+    max-width: var(--content-max);
+    margin-inline: auto;
+  }
+
+  /* @extends list-group */
+  .settings .settings-row {
+    position: relative;
+  }
+
+  /* The select is invisible: the row shows the ring when the select has the keyboard focus. */
+  .settings .settings-row:has(> .select:focus-visible) {
+    outline: 2px solid var(--text);
+    outline-offset: -2px;
+  }
+
+  .settings .settings-row > .select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  /* @component whatsnew
+     @scope whatsnew
+     @summary The release notes in a sheet: one block for each version, newest first.
+     @part whatsnew-body     The body of the sheet, with the blocks.
+     @part whatsnew-entry    One version: its line and its notes.
+     @part whatsnew-version  The version and its day.
+     @part whatsnew-notes    The notes of a version, as a list.
+     @example <section class="whatsnew-entry"><h3 class="whatsnew-version">Version 1.2.0 · 20 October 2026</h3><ul class="whatsnew-notes"><li>A new menu.</li></ul></section> */
+  .whatsnew-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .whatsnew-version {
+    margin: 0 0 var(--space-2);
+    color: var(--muted);
+    font-size: var(--text-xs);
+    font-weight: 600;
+  }
+
+  .whatsnew-notes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+    padding-left: var(--space-5);
+  }
+
+  /* @component about
+     @scope settings
+     @summary The version lines at the end of Settings.
+     @part about-line  One line: the version and its state.
+     @example <footer class="about"><p class="about-line"><span>Version 0.1.0</span></p></footer> */
+  .about {
+    margin: var(--space-6) var(--space-3) 0;
+    color: var(--muted);
+    font-size: var(--text-xs);
+    text-align: center;
+  }
+
+  .about-line {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+    margin: 0;
+  }
+
+  /* @component dust
+     @scope nav
+     @summary The canvas of the dust effect of a nav item that goes away or comes back.
+     @example <p>The dust canvas is drawn by dust.js; it has no example of its own.</p> */
+  .dust {
+    position: fixed;
+    z-index: 40;
+    pointer-events: none;
+  }
+
+  /* @component onboarding
+     @scope onboarding
+     @summary The walkthrough of the first start, over the full app: a page, the dots, the buttons.
+     @part onboarding-logo     The app icon, in the middle of the band above the page. It stays while the pages change.
+     @part onboarding-page     The page in view: its drawing, its title and its text.
+     @part onboarding-title    The title of a page.
+     @part onboarding-text     The text of a page.
+     @part onboarding-key      A control named in a text, such as ↻ or +: a key with a border, as inline code.
+     @part onboarding-dots     One dot for each page.
+     @part onboarding-dot      One dot.
+     @part onboarding-actions  Saltar and the next button, side by side. On the last page the next button fills the bar.
+     @part onboarding-switch   The switch of the sample data on the last page. It keeps its room on each page.
+     @state away               On onboarding-switch: a page with no switch. The room stays, so nothing moves.
+     @state on                 On onboarding-dot: the page in view.
+     @state enter-next         On onboarding-page: it comes in from the right.
+     @state enter-previous     On onboarding-page: it comes in from the left.
+     @example <div class="onboarding-actions" style="width: 100%"><button class="button outline quiet" type="button">Skip</button><button class="button primary" type="button">Next</button></div>
+     @example <div class="onboarding-dots"><span class="onboarding-dot on"></span><span class="onboarding-dot"></span><span class="onboarding-dot"></span></div> */
+  .onboarding {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: calc(var(--space-5) + env(safe-area-inset-top)) calc(var(--space-5) + env(safe-area-inset-right))
+      calc(var(--space-5) + env(safe-area-inset-bottom)) calc(var(--space-5) + env(safe-area-inset-left));
+    background: var(--bg);
+    /* A horizontal slide changes the page, so the browser must not take it. */
+    touch-action: pan-y;
+    overflow: hidden auto;
+  }
+
+  /* The free space of the layer is three equal margins: above the logo, below it and below the
+     page. The logo thus sits in the middle of the band above the drawing. */
+  .onboarding-logo {
+    flex: none;
+    align-self: center;
+    margin-block: auto;
+    width: var(--logo);
+    height: var(--logo);
+  }
+
+  .onboarding-page {
+    display: flex;
+    flex: none;
+    margin-bottom: auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-6);
+    text-align: center;
+  }
+
+  .onboarding-page.enter-next,
+  .onboarding-page.enter-previous {
+    animation: enter var(--motion) ease-out;
+  }
+
+  .onboarding-page.enter-next {
+    --enter-from: 48px;
+  }
+
+  .onboarding-page.enter-previous {
+    --enter-from: -48px;
+  }
+
+  /* A title can take two lines in some catalogs. It keeps the room of two, with its last line
+     next to the text, so the drawing does not move. */
+  .onboarding-title {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: 2lh;
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-l);
+  }
+
+  /* The longest text of a page, in any catalog, is five lines at 32ch. The text keeps room for
+     five, so each page has the same height and the drawing and the logo do not move. */
+  .onboarding-text {
+    max-width: 32ch;
+    /* A line break of a catalog text starts a new line. */
+    white-space: pre-line;
+    min-height: 5lh;
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .onboarding-switch {
+    align-self: stretch;
+    border-radius: var(--radius-l);
+    background: var(--surface);
+  }
+
+  .onboarding-switch.away {
+    visibility: hidden;
+  }
+
+  .onboarding-key {
+    padding: 0 var(--space-1);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-s);
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+  }
+
+  /* The icon of a key sits on the line of the text, with a small gap before its text. */
+  .onboarding-key > .icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin-right: var(--space-1);
+    vertical-align: -0.2em;
+  }
+
+  .onboarding-key > .icon:only-child {
+    margin-right: 0;
+  }
+
+  .onboarding-dots {
+    display: flex;
+    flex: none;
+    justify-content: center;
+    gap: var(--space-2);
+  }
+
+  .onboarding-dot {
+    width: var(--space-2);
+    height: var(--space-2);
+    border-radius: var(--radius-round);
+    background: var(--line);
+  }
+
+  .onboarding-dot.on {
+    background: var(--ink);
+  }
+
+  /* Saltar sits beside the next button, on the side away from the thumb. */
+  .onboarding-actions {
+    display: flex;
+    flex: none;
+    gap: var(--space-2);
+  }
+
+  .onboarding-actions > .button {
+    flex: 1 1 50%;
+  }
+
+  [data-hand="left"] .onboarding-actions {
+    flex-direction: row-reverse;
+  }
+
+  /* @component onboarding-art
+     @scope onboarding
+     @summary The line drawing of a walkthrough page, inline in the page. Its shapes take these parts.
+     @part art-card     A card shape, filled with --surface.
+     @part art-accent   A --primary stroke.
+     @part art-soft     A --done-soft fill with a --primary stroke.
+     @part art-solid    A solid --primary fill.
+     @part art-on-solid A stroke on a solid fill.
+     @example <div class="onboarding-art"><svg viewBox="0 0 240 160" aria-hidden="true"><rect class="art-card art-accent" x="20" y="20" width="90" height="120" rx="10"/><circle class="art-solid" cx="160" cy="80" r="13"/><path class="art-on-solid" d="M160 74v12M154 80h12"/></svg></div> */
+  .onboarding-art > svg {
+    display: block;
+    width: min(var(--art-width), 70vw);
+    height: auto;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .art-card {
+    fill: var(--surface);
+  }
+
+  .art-accent {
+    stroke: var(--primary);
+  }
+
+  .art-soft {
+    fill: var(--done-soft);
+    stroke: var(--primary);
+  }
+
+  .art-solid {
+    fill: var(--primary);
+    stroke: none;
+  }
+
+  .art-on-solid {
+    stroke: var(--on-primary);
+  }
+
+  /* @component account
+     @scope account
+     @summary The screens of the account over the full app (ACC-2): Sign in and Waiting for approval.
+       One page shows at a time, in the width of the column, centred. Over the walkthrough.
+     @part account-page    One screen.
+     @part account-logo    The app icon, at the top of Sign in.
+     @part account-title   The name of the screen.
+     @part account-text    The line below the title.
+     @part account-wait    The large icon of Waiting for approval.
+     @example <div class="account-page" style="width: 100%"><h2 class="account-title">Iniciar sesión</h2><p class="account-text">El administrador aprueba cada cuenta nueva.</p><button class="button tonal wide" type="button"><svg class="icon small" aria-hidden="true"><use href="icons.svg#google"/></svg>Continuar con Google</button></div> */
+  .account {
+    position: fixed;
+    inset: 0;
+    /* Over the walkthrough and the dust: the sign-in of a first start comes first. */
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    padding: calc(var(--space-5) + env(safe-area-inset-top)) calc(var(--space-5) + env(safe-area-inset-right))
+      calc(var(--space-5) + env(safe-area-inset-bottom)) calc(var(--space-5) + env(safe-area-inset-left));
+    background: var(--bg);
+    overflow: hidden auto;
+  }
+
+  @media (min-width: 600px) {
+    .account {
+      padding-left: max(var(--space-5) + env(safe-area-inset-left), (100% - var(--content-max)) / 2);
+      padding-right: max(var(--space-5) + env(safe-area-inset-right), (100% - var(--content-max)) / 2);
+    }
+  }
+
+  .account-page {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-3);
+  }
+
+  .account-logo {
+    align-self: center;
+    width: var(--logo);
+    height: var(--logo);
+  }
+
+  .account-title {
+    margin: 0;
+    font-size: var(--text-l);
+    text-align: center;
+  }
+
+  .account-title:focus {
+    outline: none;
+  }
+
+  .account-text {
+    margin: 0 0 var(--space-2);
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .account-wait {
+    align-self: center;
+    width: var(--logo);
+    height: var(--logo);
+    color: var(--muted);
+  }
+
+  .account-page > .button.accent {
+    align-self: center;
+  }
+}

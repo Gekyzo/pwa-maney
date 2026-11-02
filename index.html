@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="theme-color" content="#f4f3f1" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)">
+    <title>Maney</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icons/icon-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <link rel="stylesheet" href="./vendor/design-system/design-system.css">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="app-header-text">
+        <h1 id="title" class="app-header-title"></h1>
+        <p id="subtitle" class="app-header-subtitle"></p>
+      </div>
+    </header>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+      <span id="toast-text" class="toast-text"></span>
+      <button id="toast-action" class="button strong" type="button" hidden></button>
+    </div>
+
+    <main>
+      <section id="notes" class="pane">
+        <div class="pane-list">
+          <ul id="note-list" class="item-list"></ul>
+          <div id="notes-empty" class="empty-state" hidden>
+            <p data-i18n="notes.empty"></p>
+            <button id="notes-add" class="button primary" type="button" data-i18n="notes.add"></button>
+          </div>
+        </div>
+        <article id="note-detail" class="pane-detail">
+          <button id="note-back" class="button quiet pane-back" type="button" data-i18n="notes.back"></button>
+          <p id="note-detail-empty" class="empty-state inline" data-i18n="notes.pick"></p>
+          <p id="note-detail-text"></p>
+          <div id="note-actions" class="cluster">
+            <button id="note-edit" class="button outline" type="button" data-i18n="notes.edit"></button>
+            <button id="note-delete" class="button danger" type="button"><svg class="icon" aria-hidden="true"><use href="icons.svg#trash"/></svg><span data-i18n="notes.delete"></span></button>
+          </div>
+        </article>
+      </section>
+
+      <section id="settings" class="settings" hidden>
+        <div id="account-group" hidden>
+          <h2 class="list-group-head" data-i18n="settings.account"></h2>
+          <div class="list-group">
+            <div id="account-row" class="settings-row"><span id="account-email" class="settings-row-label"></span></div>
+            <button id="logout" class="settings-row" type="button"><span class="settings-row-label" data-i18n="account.logout"></span><span class="chevron" aria-hidden="true">›</span></button>
+            <button id="account-login" class="settings-row" type="button"><span class="settings-row-label" data-i18n="account.signIn"></span><span class="chevron" aria-hidden="true">›</span></button>
+          </div>
+        </div>
+        <h2 class="list-group-head" data-i18n="settings.backup"></h2>
+        <div class="list-group">
+          <button id="export" class="settings-row" type="button"><span class="settings-row-label" data-i18n="settings.export"></span><span class="chevron" aria-hidden="true">›</span></button>
+          <button id="import" class="settings-row" type="button"><span class="settings-row-label" data-i18n="settings.import"></span><span class="chevron" aria-hidden="true">›</span></button>
+          <button id="reset" class="settings-row danger" type="button"><span class="settings-row-label" data-i18n="settings.reset"></span></button>
+        </div>
+        <h2 class="list-group-head" data-i18n="settings.preferences"></h2>
+        <div class="list-group">
+          <div class="settings-row">
+            <span class="settings-row-label" data-i18n="settings.language"></span>
+            <span id="language-value" class="settings-row-value"></span>
+            <span class="chevron" aria-hidden="true">›</span>
+            <select id="language" class="select" data-i18n-attr="aria-label:settings.language"></select>
+          </div>
+          <div class="settings-row">
+            <span class="settings-row-label" data-i18n="settings.hand"></span>
+            <span id="hand-value" class="settings-row-value"></span>
+            <span class="chevron" aria-hidden="true">›</span>
+            <select id="hand" class="select" data-i18n-attr="aria-label:settings.hand"></select>
+          </div>
+          <div class="settings-row">
+            <span class="settings-row-label" data-i18n="settings.theme"></span>
+            <span id="theme-value" class="settings-row-value"></span>
+            <span class="chevron" aria-hidden="true">›</span>
+            <select id="theme" class="select" data-i18n-attr="aria-label:settings.theme"></select>
+          </div>
+        </div>
+        <h2 class="list-group-head" data-i18n="settings.modules"></h2>
+        <div class="list-group">
+          <label class="switch"><span data-i18n="nav.notes"></span><input class="switch-input" type="checkbox" role="switch" data-module="notes"></label>
+        </div>
+        <div id="install-group" hidden>
+          <h2 class="list-group-head" data-i18n="settings.app"></h2>
+          <div class="list-group">
+            <button id="install" class="settings-row" type="button"><span class="settings-row-label" data-i18n="settings.install"></span><span class="chevron" aria-hidden="true">›</span></button>
+          </div>
+        </div>
+        <h2 class="list-group-head" data-i18n="settings.help"></h2>
+        <div class="list-group">
+          <button id="show-onboarding" class="settings-row" type="button"><span class="settings-row-label" data-i18n="settings.onboarding"></span><span class="chevron" aria-hidden="true">›</span></button>
+          <button id="show-whatsnew" class="settings-row" type="button" hidden><span class="settings-row-label" data-i18n="settings.whatsNew"></span><span class="chevron" aria-hidden="true">›</span></button>
+        </div>
+        <footer class="about">
+          <p class="about-line"><span id="version"></span><span id="version-status" class="version-status" role="status" data-status="checking"><svg data-for="checking" class="icon small" aria-hidden="true"><use href="icons.svg#refresh"/></svg><svg data-for="current" class="icon small" aria-hidden="true"><use href="icons.svg#check-circle"/></svg><svg data-for="outdated" class="icon small" aria-hidden="true"><use href="icons.svg#download"/></svg><svg data-for="unknown" class="icon small" aria-hidden="true"><use href="icons.svg#offline"/></svg><span id="version-status-text" class="version-status-text"></span></span></p>
+          <button id="update" class="button accent" type="button" hidden><span data-i18n="settings.update"></span></button>
+        </footer>
+      </section>
+    </main>
+
+    <button id="fab" class="fab" type="button" data-i18n-attr="aria-label:notes.add">+</button>
+
+    <nav class="nav-bar" data-i18n-attr="aria-label:nav.label">
+      <button class="nav-item" type="button" data-view="notes">
+        <svg class="icon" aria-hidden="true"><use href="icons.svg#note"/></svg>
+        <span data-i18n="nav.notes"></span>
+      </button>
+      <button class="nav-item" type="button" data-view="settings">
+        <svg class="icon" aria-hidden="true"><use href="icons.svg#settings"/></svg>
+        <span data-i18n="nav.settings"></span>
+      </button>
+    </nav>
+
+    <div id="whatsnew-sheet" class="sheet-layer" hidden>
+      <div id="whatsnew-veil" class="sheet-veil"></div>
+      <section id="whatsnew" class="sheet" role="dialog" aria-modal="true" aria-labelledby="whatsnew-title">
+        <div class="sheet-grab"></div>
+        <header class="sheet-head"><h2 id="whatsnew-title" class="sheet-title main" data-i18n="whatsNew.title"></h2><button id="whatsnew-close" class="button tonal" type="button" data-i18n="whatsNew.close"></button></header>
+        <div id="whatsnew-body" class="sheet-body whatsnew-body"></div>
+      </section>
+    </div>
+
+    <div id="note-sheet" class="sheet-layer" hidden>
+      <div id="note-veil" class="sheet-veil"></div>
+      <form id="note-form" class="sheet" role="dialog" aria-modal="true" aria-labelledby="note-sheet-title" autocomplete="off">
+        <div class="sheet-grab"></div>
+        <header class="sheet-head"><h2 id="note-sheet-title" class="sheet-title main"></h2><button id="note-close" class="button tonal" type="button" data-i18n="notes.close"></button></header>
+        <div class="sheet-body">
+          <label class="field"><textarea id="note-text" class="input field-input" maxlength="200" rows="3" required data-i18n-attr="placeholder:notes.text"></textarea><span class="field-label" data-i18n="notes.text"></span></label>
+        </div>
+        <footer class="sheet-foot"><button class="button primary wide" type="submit" data-i18n="notes.save"></button></footer>
+      </form>
+    </div>
+
+    <div id="onboarding" class="onboarding" role="dialog" aria-modal="true" data-i18n-attr="aria-label:onboarding.label" hidden>
+      <img class="onboarding-logo" src="./icons/logo.png" alt="">
+      <div id="onboarding-page" class="onboarding-page">
+        <div class="onboarding-art">
+          <svg data-page="welcome" viewBox="0 0 240 160" aria-hidden="true">
+            <rect class="art-card" x="70" y="16" width="100" height="128" rx="12"/>
+            <path class="art-accent" d="M90 50h60M90 74h44M90 98h52"/>
+            <circle class="art-solid" cx="170" cy="130" r="18"/>
+            <path class="art-on-solid" d="M170 122v16M162 130h16"/>
+          </svg>
+          <svg data-page="offline" viewBox="0 0 240 160" aria-hidden="true">
+            <rect class="art-card" x="70" y="16" width="100" height="128" rx="12"/>
+            <path class="art-accent" d="M96 70a34 34 0 0 1 48 0M106 82a20 20 0 0 1 28 0"/>
+            <circle class="art-accent" cx="120" cy="96" r="4"/>
+            <path d="M92 52l56 64"/>
+          </svg>
+        </div>
+        <div aria-live="polite">
+          <h2 id="onboarding-title" class="onboarding-title"></h2>
+          <p id="onboarding-text" class="onboarding-text"></p>
+        </div>
+      </div>
+      <div id="onboarding-dots" class="onboarding-dots" role="img"></div>
+      <div class="onboarding-actions">
+        <button id="onboarding-skip" class="button outline quiet" type="button" data-i18n="onboarding.skip"></button>
+        <button id="onboarding-next" class="button primary" type="button"></button>
+      </div>
+    </div>
+
+    <section id="auth" class="account" role="dialog" aria-modal="true" aria-labelledby="login-title" hidden>
+      <div id="login" class="account-page">
+        <img class="account-logo" src="./icons/logo.png" alt="">
+        <h2 id="login-title" class="account-title" tabindex="-1" data-i18n="account.login.title"></h2>
+        <p class="account-text" data-i18n="account.login.text"></p>
+        <button id="login-google" class="button tonal wide" type="button"><svg class="icon small" aria-hidden="true"><use href="icons.svg#google"/></svg><span data-i18n="account.google"></span></button>
+        <p id="login-error" class="input-help danger" role="alert" hidden></p>
+        <button id="login-offline" class="button accent" type="button" data-i18n="account.offline"></button>
+      </div>
+      <div id="waiting" class="account-page" hidden>
+        <svg class="icon account-wait" aria-hidden="true"><use href="icons.svg#refresh"/></svg>
+        <h2 id="waiting-title" class="account-title" tabindex="-1" data-i18n="account.waiting.title"></h2>
+        <p class="account-text" data-i18n="account.waiting.text"></p>
+        <button id="waiting-check" class="button tonal wide" type="button" data-i18n="account.waiting.check"></button>
+        <button id="waiting-logout" class="button accent" type="button" data-i18n="account.logout"></button>
+      </div>
+    </section>
+
+    <input id="import-file" type="file" accept="application/json,.json" hidden>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "#app": "./src/app.js",
+          "#ds/sheet": "./vendor/design-system/sheet.js",
+          "#config": "./src/config.js",
+          "#pocketbase": "./src/pocketbase.js",
+          "#session": "./src/session.js",
+          "#notes": "./src/notes.js",
+          "#install": "./src/install.js",
+          "#sections": "./src/sections.js",
+          "#modules": "./src/modules.js",
+          "#storage": "./src/storage.js",
+          "#version": "./src/version.js",
+          "#whatsnew": "./src/whatsnew.js",
+          "#i18n": "./src/i18n.js",
+          "#locales/en": "./src/locales/en.js",
+          "#locales/es": "./src/locales/es.js",
+          "#ui/context": "./src/ui/context.js",
+          "#ui/controls": "./src/ui/controls.js",
+          "#ui/install": "./src/ui/install.js",
+          "#ui/motion": "./src/ui/motion.js",
+          "#ui/nav": "./src/ui/nav.js",
+          "#ui/notes": "./src/ui/notes.js",
+          "#ui/settings": "./src/ui/settings.js",
+          "#swipe": "./src/swipe.js",
+          "#reorder": "./src/reorder.js",
+          "#particles": "./src/particles.js",
+          "#onboarding": "./src/onboarding.js",
+          "#ui/drag": "./src/ui/drag.js",
+          "#ui/dust": "./src/ui/dust.js",
+          "#ui/onboarding": "./src/ui/onboarding.js",
+          "#ui/whatsnew": "./src/ui/whatsnew.js",
+          "#ui/update": "./src/ui/update.js",
+          "#ui/account": "./src/ui/account.js"
+        }
+      }
+    </script>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>

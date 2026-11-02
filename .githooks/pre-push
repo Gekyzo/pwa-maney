@@ -1,0 +1,23 @@
+#!/bin/sh
+# A pushed release tag is a deploy (.github/workflows/pages.yml). The tag vX.Y.Z must point
+# at a commit whose version.json has the version X.Y.Z, so that Settings shows the version
+# that is deployed. npm run release makes such a tag; this hook stops a tag made by hand
+# that does not match. A push of main deploys nothing and passes.
+# Enable: npm run hooks. Skip: git push --no-verify.
+
+ZERO=0000000000000000000000000000000000000000
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in refs/tags/v*) ;; *) continue ;; esac
+  [ "$local_sha" = "$ZERO" ] && continue
+  tag=${remote_ref#refs/tags/}
+  version=$(git show "$local_sha^{commit}:version.json" 2>/dev/null |
+    node -e 'let s = ""; process.stdin.on("data", (c) => (s += c)).on("end", () => console.log(JSON.parse(s).version))' 2>/dev/null)
+  if [ "v$version" != "$tag" ]; then
+    echo "pre-push: the tag $tag points at a commit with version.json ${version:-missing}." >&2
+    echo 'Make a release with npm run release.' >&2
+    exit 1
+  fi
+done
+
+exit 0
