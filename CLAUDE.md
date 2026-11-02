@@ -1,7 +1,8 @@
 # pwa-maney
 
-A template for offline Android PWAs: plain HTML, CSS and ES modules, no build step and
-no dependencies. Copy it and run `npm run init` to start a new app.
+Maney is the phone companion of the maney finance app: receipts with a photo, to-dos and the month
+summary. It syncs through PocketBase. The rules are in `docs/spec/`; the data shapes are in the
+maney sync contract, `maney-2026/docs/superpowers/specs/2026-11-02-maney-04-sync-contract.md`.
 
 ## Commands
 

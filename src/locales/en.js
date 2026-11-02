@@ -1,6 +1,6 @@
 export default {
   'app.title': 'Maney',
-  'app.description': 'Installable web app template',
+  'app.description': 'The phone companion of maney: receipts with a photo, to-dos and the month summary.',
   'nav.label': 'Sections',
   'nav.notes': 'Notes',
   'nav.settings': 'Settings',
@@ -86,4 +86,11 @@ export default {
   'error.textRequired': 'Write a text.',
   'error.textTooLong': 'At most {max} characters.',
   'error.noteMissing': 'The note no longer exists.',
+  'error.dateInvalid': 'The date is not valid.',
+  'error.todoMissing': 'The to-do is gone.',
+  'error.amountInvalid': 'Type an amount above 0, with at most two decimals.',
+  'error.shopTooLong': 'The shop takes {max} characters at most.',
+  'error.noteTooLong': 'The note takes {max} characters at most.',
+  'error.photoInvalid': 'The photo is not valid.',
+  'error.receiptMissing': 'The receipt is gone.',
 };

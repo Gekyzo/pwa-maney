@@ -18,6 +18,8 @@ The names of the screen are the English ones; `src/locales/es.js` is the source 
 | [06-i18n.md](06-i18n.md) | The languages and the rules of the text |
 | [07-notes.md](07-notes.md) | The notes demo: the domain that each app replaces |
 | [08-account.md](08-account.md) | Google sign-in, the approval gate and the offline choice |
+| [10-todos.md](10-todos.md) | The doc of to-dos and receipts, money and dates |
+| [11-summary.md](11-summary.md) | The summary of the month that maney pushes |
 
 ## Rule identifiers
 
@@ -38,6 +40,8 @@ The rules DS-1 to DS-8 and LAY-1 to LAY-4 belong to the design system, `pwa-desi
 | `I18N` | 06-i18n |
 | `NOTE` | 07-notes |
 | `ACC` | 08-account |
+| `TODO` | 10-todos |
+| `SUM` | 11-summary |
 
 ## Words
 

@@ -15,6 +15,11 @@
 | `src/storage.js` | Load, save, validation hook, export, import, device preferences | `config`, `modules` |
 | `src/install.js` | The install offer state machine | nothing |
 | `src/notes.js` | Pure note operations, the doc and its validation (demo) | `config` |
+| `src/money.js` | Euros as integer cents: the parse of typed euros and the de-DE display | nothing |
+| `src/todos.js` | Pure to-do operations, the real-date check and the to-do validation | nothing |
+| `src/receipts.js` | Pure receipt operations and the receipt validation | `todos`, `money` |
+| `src/summary.js` | The validation of the summary that maney pushes | `todos` |
+| `src/doc.js` | The doc of to-dos, receipts and the summary, and its validation | `storage`, `todos`, `receipts`, `summary` |
 | `src/swipe.js` | The rule that settles the slide of a row (optional) | nothing |
 | `src/reorder.js` | The geometry of a row move (optional) | nothing |
 | `src/particles.js` | The particles of a picture and their place in time (optional) | nothing |
@@ -65,7 +70,7 @@
 
 ## Storage keys
 
-The doc keys are in [07-notes.md](07-notes.md). The device preferences are `maney.lang`,
+The doc key is `maney.doc` ([10-todos.md](10-todos.md)); the demo notes key is in [07-notes.md](07-notes.md). The device preferences are `maney.lang`,
 `maney.hand`, `maney.theme`, `maney.modules` and `maney.onboarded`. The account keeps `maney.session` (ACC-5) and
 `maney.offline` (ACC-10), and `maney.oauth` in `sessionStorage` for the time of a Google redirect (ACC-4).
 
@@ -89,6 +94,11 @@ The doc keys are in [07-notes.md](07-notes.md). The device preferences are `mane
 | Test file | Covers |
 |---|---|
 | `tests/notes.test.js` | The note operations and the validation of the doc (demo) |
+| `tests/money.test.js` | Typed euros to cents and the display of cents (TODO-1) |
+| `tests/todos.test.js` | The to-do operations, their order and their validation (TODO-1 to TODO-5) |
+| `tests/receipts.test.js` | The receipt operations, their order and their validation (TODO-6 to TODO-8) |
+| `tests/summary.test.js` | The validation of the summary (SUM-1, SUM-2) |
+| `tests/doc.test.js` | The doc, its key and its validation (TODO-1, TODO-9) |
 | `tests/pocketbase.test.js` | The client of the account server and its URL (ACC-3, ACC-4, ACC-6) |
 | `tests/session.test.js` | The session, the start route, the offline flag, the pending sign-in and the return URL (ACC-1, ACC-4, ACC-5, ACC-10) |
 | `tests/storage.test.js` | Load, save, the corrupt copy, export, import and the device preferences |

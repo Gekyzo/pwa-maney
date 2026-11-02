@@ -12,16 +12,6 @@ The phone companion of maney: receipts with a photo, to-dos and the month summar
 
 A small notes list shows each part in use. Replace it with the domain of the app.
 
-## Start a new app
-
-1. Copy the repository without its history: `cp -r pwa-maney my-app && rm -rf my-app/.git`.
-2. `cd my-app && npm run init -- my-app "My App" [--short "App"] [--theme "#1f7a4d"]`.
-3. `git init -b main && npm run hooks`.
-4. Replace `icons/source.png` (512×512, art inside the centre 80%), then `npm run icons`.
-5. Replace or delete the notes demo. `docs/spec/07-notes.md` lists its files.
-6. `npm test`.
-7. Go through [docs/deploy-checklist.md](docs/deploy-checklist.md) before the first deploy.
-
 ## Develop
 
 ```sh

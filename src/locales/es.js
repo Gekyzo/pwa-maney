@@ -1,6 +1,6 @@
 export default {
   'app.title': 'Maney',
-  'app.description': 'Plantilla de aplicación web instalable',
+  'app.description': 'El acompañante móvil de maney: tickets con foto, tareas y el resumen del mes.',
   'nav.label': 'Secciones',
   'nav.notes': 'Notas',
   'nav.settings': 'Ajustes',
@@ -86,4 +86,11 @@ export default {
   'error.textRequired': 'Escribe un texto.',
   'error.textTooLong': 'Máximo {max} caracteres.',
   'error.noteMissing': 'La nota ya no existe.',
+  'error.dateInvalid': 'La fecha no es válida.',
+  'error.todoMissing': 'La tarea ya no existe.',
+  'error.amountInvalid': 'Escribe un importe mayor que 0, con dos decimales como mucho.',
+  'error.shopTooLong': 'La tienda admite {max} caracteres como máximo.',
+  'error.noteTooLong': 'La nota admite {max} caracteres como máximo.',
+  'error.photoInvalid': 'La foto no es válida.',
+  'error.receiptMissing': 'El ticket ya no existe.',
 };

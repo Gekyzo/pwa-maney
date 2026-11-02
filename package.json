@@ -1,7 +1,7 @@
 {
   "name": "pwa-maney",
   "version": "0.1.0",
-  "description": "Offline Android PWA template: plain HTML, CSS and ES modules, no build step",
+  "description": "The phone companion of maney: receipts with a photo, to-dos and the month summary.",
   "private": true,
   "type": "module",
   "engines": {
