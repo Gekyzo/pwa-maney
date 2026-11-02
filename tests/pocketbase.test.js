@@ -128,17 +128,50 @@ const upsert = { op: 'upsert', kind: 'todo', key: 't1', data: { text: 'Pay' } };
 const remove = { op: 'delete', kind: 'todo', key: 't1' };
 const known = { updated: '2026-01-01 00:00:00.000Z', data: { text: 'Pay' } };
 
-test('pull sends the owner and cursor filter and walks every page sorted by updated (SYNC-4)', async () => {
-  const { calls, client } = fake(page([rec({ id: 'a' })], 2), page([rec({ id: 'b' })], 2));
+test('pull sends the owner and cursor filter sorted by updated and id, and steps past the last record of a full page (SYNC-4)', async () => {
+  const full = Array.from({ length: 200 }, (_, n) => rec({ id: `a${String(n).padStart(3, '0')}` }));
+  const { calls, client } = fake(page(full, 2), page([rec({ id: 'b' })]));
   const records = await client.pull('T', '2026-01-01 00:00:00.000Z', 'u1');
-  assert.deepEqual(records.map(({ id }) => id), ['a', 'b']);
+  assert.equal(records.length, 201);
   assert.equal(calls.length, 2);
   assert.equal(calls[0].url.pathname, '/api/collections/maney_records/records');
   assert.equal(calls[0].url.searchParams.get('filter'), 'owner = "u1" && updated >= "2026-01-01 00:00:00.000Z"');
   assert.equal(calls[0].url.searchParams.get('sort'), 'updated,id');
   assert.equal(calls[0].url.searchParams.get('perPage'), '200');
-  assert.deepEqual([calls[0].url.searchParams.get('page'), calls[1].url.searchParams.get('page')], ['1', '2']);
+  assert.equal(calls[1].url.searchParams.get('filter'), 'owner = "u1" && (updated > "2026-01-01 00:00:00.000Z" || (updated = "2026-01-01 00:00:00.000Z" && id > "a199"))');
+  assert.deepEqual([calls[0].url.searchParams.get('page'), calls[1].url.searchParams.get('page')], ['1', '1']);
   assert.equal(calls[0].headers.Authorization, 'T');
+});
+
+// A server that answers the pull filters from its records, so a test can edit a record between pages.
+const recordServer = (records, between) => {
+  let served = 0;
+  const fetch = async (url) => {
+    const query = new globalThis.URL(url).searchParams;
+    const filter = query.get('filter');
+    const after = filter.match(/\(updated > "([^"]+)" \|\| \(updated = "[^"]+" && id > "([^"]+)"\)\)/);
+    const since = filter.match(/updated >= "([^"]+)"/);
+    const page = Number(query.get('page'));
+    const perPage = Number(query.get('perPage'));
+    const keep = records
+      .filter((r) => (after ? r.updated > after[1] || (r.updated === after[1] && r.id > after[2]) : since ? r.updated >= since[1] : true))
+      .sort((a, b) => (a.updated === b.updated ? (a.id < b.id ? -1 : 1) : a.updated < b.updated ? -1 : 1));
+    const items = keep.slice((page - 1) * perPage, page * perPage);
+    served += 1;
+    if (served === 1) between(records);
+    return reply(200, { items, page, totalPages: Math.ceil(keep.length / perPage) });
+  };
+  return createClient({ url: `${URL_}/`, fetch });
+};
+
+test('a record edited on another device during the pull skips no other record (SYNC-4)', async () => {
+  const at = (n) => `2026-01-01 00:00:${String(n).padStart(2, '0')}.000Z`;
+  const records = Array.from({ length: 250 }, (_, n) => rec({ id: `r${String(n).padStart(3, '0')}`, updated: at(Math.floor(n / 10)) }));
+  // After the first page, the first record moves to the end: offset paging then skips one record.
+  const client = recordServer(records, (all) => { all[0] = { ...all[0], updated: at(59) }; });
+  const pulled = await client.pull('T', '', 'u1');
+  const ids = new Set(pulled.map(({ id }) => id));
+  assert.equal(records.filter(({ id }) => !ids.has(id)).length, 0);
 });
 
 test('pull with no cursor filters by owner only and keeps the fields of a record (SYNC-4)', async () => {

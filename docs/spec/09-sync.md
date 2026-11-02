@@ -68,8 +68,9 @@ runs the sync; it takes the client, the storage, the clock and the timer as para
     joined by `, `, each once. A field with no label is not named, and with none there is no
     toast.
 
-  A pull asks for the records of the owner with `updated >= cursor`, sorted by `updated` then `id`, and
-  walks all pages. With no cursor it pulls all records. A request with no owner fails with an auth
+  A pull asks for the records of the owner with `updated >= cursor`, sorted by `updated` then `id`, in
+  pages of 200. Each next page asks for the records after the last one received, by `updated` then
+  `id`, not for a page number: a record edited during the pull is read again, and none is skipped. With no cursor it pulls all records. A request with no owner fails with an auth
   error and sends nothing. The stream subscribes to `maney_records` with the current token at each
   connect, and a connect after the first reports a reconnect. A delete event gives a record with
   `deleted: true`. A run refreshes the token when it expires within 60 s, when it cannot be read,

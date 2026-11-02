@@ -4,7 +4,7 @@ User-visible changes, newest first.
 
 ## Unreleased
 
-No change.
+- The pull pages by keyset (SYNC-4): each request asks for the records after the last one received, by `updated` then `id`, instead of a numbered page. A record edited on another device during the pull no longer shifts the others, so the record at a page border is no longer skipped for good.
 
 ## 0.1.1 - 2026-11-02
 

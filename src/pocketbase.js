@@ -201,18 +201,25 @@ export const createClient = ({ url, fetch, EventSource }) => {
 
     refresh: async (token) => withAccess(await call('POST', `${USERS}/auth-refresh`, { token })),
 
-    // SYNC-4: every record of the owner with `updated` at or after the cursor, page by page. An empty
-    // cursor pulls all of them.
+    // SYNC-4: every record of the owner with `updated` at or after the cursor. Pages are keyset, not
+    // numbered: each request asks for the records after the last one received, by (updated, id). A
+    // record edited during the pull moves to the end and is read again; with numbered pages it shifts
+    // the others back by one, and the record at the page border is skipped for good. An empty cursor
+    // pulls all of them.
     pull: async (token, since, owner) => {
-      const filter = since ? `${ownedBy(owner)} && updated >= ${quoted(since)}` : ownedBy(owner);
+      const owned = ownedBy(owner);
       const all = [];
-      for (let page = 1; ; page += 1) {
+      let filter = since ? `${owned} && updated >= ${quoted(since)}` : owned;
+      for (;;) {
         const result = await call('GET', RECORDS, {
           token,
-          query: { filter, sort: 'updated,id', perPage: String(PAGE), page: String(page) },
+          query: { filter, sort: 'updated,id', perPage: String(PAGE), page: '1' },
         });
         all.push(...result.items.map(serverRecOf));
-        if (!(result.totalPages > page)) return all;
+        const last = result.items.at(-1);
+        if (!(result.totalPages > 1) || !last) return all;
+        const at = quoted(last.updated);
+        filter = `${owned} && (updated > ${at} || (updated = ${at} && id > ${quoted(last.id)}))`;
       }
     },
 
