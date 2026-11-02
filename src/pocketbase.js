@@ -157,7 +157,7 @@ export const createClient = ({ url, fetch, EventSource }) => {
       for (let page = 1; ; page += 1) {
         const result = await call('GET', RECORDS, {
           token,
-          query: { filter, sort: 'updated', perPage: String(PAGE), page: String(page) },
+          query: { filter, sort: 'updated,id', perPage: String(PAGE), page: String(page) },
         });
         all.push(...result.items.map(serverRecOf));
         if (!(result.totalPages > page)) return all;
@@ -166,14 +166,15 @@ export const createClient = ({ url, fetch, EventSource }) => {
 
     // SYNC-4: resolves to `{ rec, overruled }`: the server record, or null for a delete of a record
     // the server lacks, and the fields that the server changed too (they keep the server value).
-    // `base` is the server copy of the record at the last pull or push, or null. A record that moved
-    // on the server since `base` gets the field-level merge; the window between the GET and the
-    // PATCH is accepted (one owner, two clients).
+    // `base` is the server copy of the record at the last pull or push, or null. With no base the
+    // device never saw a server change (a lost create answer, a first login): the change goes as it
+    // is (SYNC-5, SYNC-8). A record that moved on the server since `base` gets the field-level
+    // merge; the window between the GET and the PATCH is accepted (one owner, two clients).
     push: async (token, change, owner, base = null) => {
       const found = await findRecord(token, change, owner);
       if (!found) return { rec: change.op === 'delete' ? null : await create(token, change, owner), overruled: [] };
-      if (change.op === 'delete' || found.updated === base?.updated) return { rec: await patch(token, found.id, bodyOf(change)), overruled: [] };
-      const { data, overruled } = mergeFields(found.data ?? {}, base?.data ?? null, change.data);
+      if (change.op === 'delete' || !base || found.updated === base.updated) return { rec: await patch(token, found.id, bodyOf(change)), overruled: [] };
+      const { data, overruled } = mergeFields(found.data ?? {}, base.data ?? null, change.data);
       return { rec: await patch(token, found.id, { deleted: false, data }), overruled };
     },
 

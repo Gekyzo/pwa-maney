@@ -461,7 +461,8 @@ export const createSyncer = ({
       lastRefresh = now();
     } else if (sync.owner === null) {
       // SYNC-8: the base is empty, so each local record is queued and the pull brings the account;
-      // a record on both sides keeps the copy of the device (SYNC-5).
+      // a record on both sides keeps the copy of the device: its push has no base, so it goes as it
+      // is (SYNC-4, SYNC-5).
       sync = { ...sync, cursor: '', server: new Map(), local: new Map(), added: [] };
     }
     sync = { ...sync, owner: session.user.id };

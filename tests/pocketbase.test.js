@@ -135,7 +135,7 @@ test('pull sends the owner and cursor filter and walks every page sorted by upda
   assert.equal(calls.length, 2);
   assert.equal(calls[0].url.pathname, '/api/collections/maney_records/records');
   assert.equal(calls[0].url.searchParams.get('filter'), 'owner = "u1" && updated >= "2026-01-01 00:00:00.000Z"');
-  assert.equal(calls[0].url.searchParams.get('sort'), 'updated');
+  assert.equal(calls[0].url.searchParams.get('sort'), 'updated,id');
   assert.equal(calls[0].url.searchParams.get('perPage'), '200');
   assert.deepEqual([calls[0].url.searchParams.get('page'), calls[1].url.searchParams.get('page')], ['1', '2']);
   assert.equal(calls[0].headers.Authorization, 'T');
@@ -185,10 +185,11 @@ test('push of a field changed on both sides keeps the server value and names it 
   assert.deepEqual(result.overruled, ['text']);
 });
 
-test('push of a found record with base null merges as changed on both sides (SYNC-4)', async () => {
-  const { calls, client } = fake(page([rec()]), reply(200, rec()));
-  const result = await client.push('T', upsert, 'u1', null);
-  assert.deepEqual(calls[1].body, { deleted: false, data: { text: 'Pay' } });
+test('push of a found record with base null patches the change as it is (SYNC-4, SYNC-8)', async () => {
+  const { calls, client } = fake(page([rec({ updated: '2026-05-01 00:00:00.000Z', data: { text: 'Theirs', done: true } })]), reply(200, rec({ data: { text: 'Mine' } })));
+  const result = await client.push('T', { ...upsert, data: { text: 'Mine' } }, 'u1', null);
+  assert.deepEqual(calls.map(({ method }) => method), ['GET', 'PATCH']);
+  assert.deepEqual(calls[1].body, { deleted: false, data: { text: 'Mine' } });
   assert.deepEqual(result.overruled, []);
 });
 

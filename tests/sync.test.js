@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { enqueue, mergePulled, cursorOf, validRecords, mergeFields } from '#sync';
+import { enqueue, mergePulled, cursorOf, validRecords, mergeFields, shownFields, OVERRULED_FIELDS } from '#sync';
+import es from '../src/locales/es.js';
+import en from '../src/locales/en.js';
 
 const up = (key, text = key) => ({ kind: 'todo', key, op: 'upsert', data: { text } });
 const rec = (key, text, updated, extra = {}) => ({ kind: 'todo', key, data: { text }, updated, ...extra });
@@ -124,4 +126,28 @@ test('mergeFields leaves its inputs alone', () => {
   const { data } = mergeFields(server, base, local);
   data.text = 'changed';
   assert.deepEqual({ server, base, local }, before);
+});
+
+test('doneAt is never reported overruled: done equal on both sides drops it, and done names both', () => {
+  const server = { ...base, done: true, doneAt: '2026-11-02T10:00:00Z' };
+  const sameDone = mergeFields(server, base, { ...base, done: true, doneAt: '2026-11-02T11:00:00Z' });
+  assert.deepEqual(sameDone.overruled, []);
+  assert.equal(sameDone.data.doneAt, '2026-11-02T10:00:00Z');
+  // With no base both fields count as changed on both sides: only `done` is named.
+  const done = mergeFields(server, null, { ...base, done: false, doneAt: null });
+  assert.deepEqual(done.overruled, ['done']);
+});
+
+test('the toast names each overruled field once and only a field with a label', () => {
+  assert.deepEqual(shownFields(['text', 'doneAt', 'text', 'id', 'amountCents']), ['text', 'amountCents']);
+  assert.deepEqual(shownFields(['doneAt']), []);
+});
+
+test('each field that the toast names has a label in both catalogs', () => {
+  assert.deepEqual(OVERRULED_FIELDS, ['text', 'due', 'done', 'takenOn', 'amountCents', 'shop', 'note', 'photo']);
+  for (const name of OVERRULED_FIELDS) {
+    for (const catalog of [es, en]) assert.ok(catalog[`sync.field.${name}`], name);
+  }
+  const fields = (data) => Object.keys(data).filter((name) => name !== 'doneAt');
+  for (const name of [...fields(base), ...fields(receiptData)]) assert.ok(OVERRULED_FIELDS.includes(name), name);
 });

@@ -93,10 +93,12 @@ const fakeClient = (server) => {
       if (!row) {
         row = { id: `pb${server.rows.length + 1}`, owner, kind: change.kind, key: change.key };
         server.rows.push(row);
-      } else if (change.op === 'upsert' && row.updated !== base?.updated) {
-        ({ data, overruled } = mergeFields(row.data, base?.data ?? null, change.data));
+      } else if (change.op === 'upsert' && base && row.updated !== base.updated) {
+        ({ data, overruled } = mergeFields(row.data, base.data, change.data));
       }
       Object.assign(row, change.op === 'delete' ? { deleted: true } : { deleted: false, data }, { updated: server.stamp() });
+      // The server took the change, but its answer is lost on the way back.
+      if (client.loseAnswer?.(client.pushes, change)) throw new PocketBaseError('network');
       return { rec: recOf(row), overruled };
     },
     subscribe: (tokenFn, onChange, { onReconnect }) => {
@@ -449,7 +451,7 @@ test('reset during a run makes the run save nothing', async () => {
 const ids = (doc) => doc.todos.map(({ id }) => id).sort();
 const liveKeys = (server, owner) => server.rows.filter((row) => row.owner === owner && !row.deleted).map(({ key }) => key).sort();
 
-test('a first login queues the to-dos of the device and merges the account; a to-do on both sides keeps the server fields, reported overruled (SYNC-4, SYNC-8)', async () => {
+test('a first login queues the to-dos of the device and merges the account; a to-do on both sides keeps the copy of the device (SYNC-8)', async () => {
   const server = fakeServer();
   server.add('u1', docOf(todo('b', 'Old hat')).todos[0]);
   server.add('u1', docOf(todo('c', 'Scarf')).todos[0]);
@@ -460,10 +462,10 @@ test('a first login queues the to-dos of the device and merges the account; a to
   assert.equal(loadSession(storage).user.id, 'u1');
   assert.deepEqual(d.client.pushed.map(({ key, op }) => [key, op]), [['a', 'upsert'], ['b', 'upsert']]);
   assert.deepEqual(ids(d.box.doc), ['a', 'b', 'c']);
-  assert.equal(d.box.doc.todos.find(({ id }) => id === 'b').text, 'Old hat');
+  assert.equal(d.box.doc.todos.find(({ id }) => id === 'b').text, 'Hat');
   assert.deepEqual(liveKeys(server, 'u1'), ['a', 'b', 'c']);
-  assert.equal(server.rows.find(({ key }) => key === 'b').data.text, 'Old hat');
-  assert.deepEqual(d.box.overruled, [['text']]);
+  assert.equal(server.rows.find(({ key }) => key === 'b').data.text, 'Hat');
+  assert.deepEqual(d.box.overruled, []);
   assert.equal(d.syncer.status().pending, 0);
 });
 
@@ -1003,4 +1005,33 @@ test('a receipt delete on the phone tombstones it on the server with its photo k
   assert.equal(await d.syncer.run(), 'ok');
   assert.deepEqual(d.client.pushed, [{ kind: 'receipt', key: 'r1', op: 'delete', photo: 'p1' }]);
   assert.equal(server.rows[0].deleted, true);
+});
+
+test('a lost create answer followed by a second local edit pushes the second edit and reports no overruled field (SYNC-4)', async () => {
+  const d = device();
+  d.save(docOf(todo('a', 'First')));
+  d.client.loseAnswer = (n) => n === 1;
+  assert.equal(await d.syncer.run(), 'offline');
+  assert.equal(d.server.rows[0].data.text, 'First');
+  assert.equal(new Map(storedSync(d.storage).server).has('todo:a'), false);
+  d.client.loseAnswer = null;
+  d.save(docOf(todo('a', 'Second')));
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.equal(d.client.bases.at(-1), null);
+  assert.equal(d.server.rows.length, 1);
+  assert.equal(d.server.rows[0].data.text, 'Second');
+  assert.equal(d.box.doc.todos[0].text, 'Second');
+  assert.deepEqual(d.box.overruled, []);
+  assert.deepEqual(storedQueue(d.storage), []);
+});
+
+test('a first login with a to-do on both sides keeps the device copy and reports no overruled field (SYNC-8)', async () => {
+  const server = fakeServer();
+  server.add('u1', { ...todo('a', 'Server text'), done: true, doneAt: '2026-11-01T10:00:00Z' });
+  const d = device({ server, storage: fakeStorage(), doc: docOf(todo('a', 'Device text')) });
+  assert.equal(await d.syncer.login(sessionOf('u1')), 'synced');
+  const expected = { text: 'Device text', due: null, done: false, doneAt: null };
+  assert.deepEqual(server.rows[0].data, expected);
+  assert.deepEqual(d.box.doc.todos, [{ id: 'a', ...expected }]);
+  assert.deepEqual(d.box.overruled, []);
 });

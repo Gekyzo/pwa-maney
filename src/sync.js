@@ -78,5 +78,12 @@ export const mergeFields = (server, base, local) => {
     if (Object.hasOwn(local, name)) data[name] = structuredClone(local[name]);
     else delete data[name];
   }
-  return { data, overruled };
+  // `doneAt` follows `done`: it is never named alone, and `done` names both.
+  return { data, overruled: overruled.filter((name) => name !== 'doneAt') };
 };
+
+// The fields that the overruled toast names, each with its label `sync.field.<name>` (SYNC-4).
+export const OVERRULED_FIELDS = ['text', 'due', 'done', 'takenOn', 'amountCents', 'shop', 'note', 'photo'];
+
+// The overruled fields that the toast shows: each once, a name with no label left out.
+export const shownFields = (names) => [...new Set(names)].filter((name) => OVERRULED_FIELDS.includes(name));

@@ -4,6 +4,7 @@
 // (SYNC-11) and the toast of the fields that another device changed first (SYNC-4).
 import { createClient, PocketBaseError } from '#pocketbase';
 import { createSyncer, reloadsOn, SYNC_KEY } from '#syncer';
+import { shownFields } from '#sync';
 import { loadSession, dropSession, routeAtStart, savePending, takePending, loadOffline, saveOffline, dropOffline } from '#session';
 import { apiUrl } from '#config';
 import { intlTag } from '#i18n';
@@ -126,14 +127,12 @@ const onStatus = (next) => {
   render();
 };
 
-// The fields that the toast can name; another name shows as it is.
-const FIELDS = ['text', 'due', 'done', 'takenOn', 'amountCents', 'shop', 'note', 'photo'];
-const fieldName = (name) => (FIELDS.includes(name) ? t(`sync.field.${name}`) : name);
-
-// SYNC-4: a push kept the server value of fields that this device changed too. With none, no toast.
+// SYNC-4: a push kept the server value of fields that this device changed too. Only a field with a
+// label is named; with none, no toast.
 const onOverruled = (fields) => {
-  if (fields.length === 0) return;
-  showToast(t('toast.syncOverruled', { fields: [...new Set(fields)].map(fieldName).join(', ') }));
+  const shown = shownFields(fields);
+  if (shown.length === 0) return;
+  showToast(t('toast.syncOverruled', { fields: shown.map((name) => t(`sync.field.${name}`)).join(', ') }));
 };
 
 // The doc that a merge gives is put in place with no save of the user (SYNC-2).

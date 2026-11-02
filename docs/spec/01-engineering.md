@@ -39,7 +39,7 @@
 | `src/ui/dust.js` | The dust of a navigation item (optional) | `particles`, `ui/context`, `ui/controls` |
 | `src/ui/onboarding.js` | The walkthrough (optional) | `onboarding`, `sections`, `storage`, `ui/context`, `ui/controls` |
 | `src/ui/whatsnew.js` | The release notes sheet, its Settings row and the seen version | `whatsnew`, `onboarding`, `i18n`, `storage`, `ds/sheet`, `ui/context` |
-| `src/ui/account.js` | The account screens, the group Account of Settings, and the sync of the app: the login, the logout, the auth stop, the window events, the offline note and the overruled toast (ACC-1 to ACC-12, SYNC-3, SYNC-4, SYNC-10 to SYNC-12) | `pocketbase`, `syncer`, `session`, `config`, `i18n`, `ui/context` |
+| `src/ui/account.js` | The account screens, the group Account of Settings, and the sync of the app: the login, the logout, the auth stop, the window events, the offline note and the overruled toast (ACC-1 to ACC-12, SYNC-3, SYNC-4, SYNC-10 to SYNC-12) | `pocketbase`, `syncer`, `sync`, `session`, `config`, `i18n`, `ui/context` |
 | `src/app.js` | Wires the views, the global keys, the service worker and the update check | all of the above |
 
 ## Code rules

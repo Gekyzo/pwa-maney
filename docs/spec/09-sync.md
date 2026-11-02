@@ -51,21 +51,24 @@ runs the sync; it takes the client, the storage, the clock and the timer as para
     create that the server refuses as a duplicate patches the record that another device made.
   - A delete patches the found record with `deleted: true` and keeps its `data`, whatever its
     `updated`.
-  - An upsert of a found record whose `updated` is the one of the base patches `deleted: false`
-    and the `data` of the change, so a tombstone comes back.
+  - An upsert of a found record whose `updated` is the one of the base, or of a found record with
+    a null base, patches `deleted: false` and the `data` of the change, so a tombstone comes back.
+    A null base means that the device never saw a server change of the record (a create whose
+    answer was lost, or the first login of SYNC-8), so the change of the device wins (SYNC-5).
   - Else the record moved on the server since the base, and the push merges field by field
     (`mergeFields` of `src/sync.js`): the server `data`, with each field that the device changed
     since the base put back. A field that the server changed too keeps the server value; it is
-    overruled when it differs from the value of the device. With a null base every field counts as
-    changed on both sides. The push patches `deleted: false` and the merged `data`. So a to-do text
+    overruled when it differs from the value of the device. `doneAt` is never named alone: `done`
+    names both. The push patches `deleted: false` and the merged `data`. So a to-do text
     edited on the phone survives a `done` set by maney. The window between the read and the patch
     is accepted (one owner, two clients).
   - The push gives the server record and the overruled fields. The change always leaves the
     queue, so the pull of the same run puts the merged value in place. When some fields are
-    overruled the app shows `toast.syncOverruled`, with the names `sync.field.*` of the fields
-    joined by `, `; with none there is no toast.
+    overruled the app shows `toast.syncOverruled`, with the labels `sync.field.*` of the fields
+    joined by `, `, each once. A field with no label is not named, and with none there is no
+    toast.
 
-  A pull asks for the records of the owner with `updated >= cursor`, sorted by `updated`, and
+  A pull asks for the records of the owner with `updated >= cursor`, sorted by `updated` then `id`, and
   walks all pages. With no cursor it pulls all records. A request with no owner fails with an auth
   error and sends nothing. The stream subscribes to `maney_records` with the current token at each
   connect, and a connect after the first reports a reconnect. A delete event gives a record with
@@ -94,8 +97,8 @@ runs the sync; it takes the client, the storage, the clock and the timer as para
 
 - **SYNC-8** The first login on a device with no stored owner merges. The base of the sync is
   empty, so each local to-do and receipt is queued as an upsert, and the pull brings the records
-  of the account. A record on both sides (the same id) is pushed with a null base (SYNC-4): each
-  field that differs keeps the server value and is overruled. A device with no records takes the
+  of the account. A record on both sides (the same id) keeps the copy of the device: it is pushed
+  with a null base, so it goes as it is (SYNC-4), and a queued change wins (SYNC-5). A device with no records takes the
   account and sends nothing. No record is dropped, so the device keeps no copy of the list of
   before the login. A login of the stored owner goes on with the queue and the state. A login
   starts a run of its own; a run in progress with the token of before the login becomes stale, so
