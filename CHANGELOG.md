@@ -4,6 +4,10 @@ User-visible changes, newest first.
 
 ## Unreleased
 
+No change.
+
+## 0.1.1 - 2026-11-02
+
 - An import keeps the summary of the device (`importedDoc` of `doc.js`; SYNC-9, SYNC-13). `mergePulled` no longer moves the server copy of a queued record, so its push keeps the old base and takes the field-level merge instead of patching stale data over a change of maney (SYNC-5).
 - The orphan sweep of pending photos runs once when the syncer starts, on the doc and queue of the start, with or without a session, so a delete and its Undo inside the first debounced run keep the photo (SYNC-15). A receipt upsert naming a photo with no pending file goes as it is when the server copy names it or `findPhoto` finds the file, else it is forgotten as a refused photo (`photo: null` in the queue, base and doc). The backup questions (`reset.confirm*`, `account.exportAsk`, `account.logoutExport`) say that a backup holds no pending photo (SYNC-16).
 - Receipt photos through `maney_files`. The sheet has Take photo (`capture="environment"`); `scalePhoto` (`ui/photo.js`) scales it to at most 1600 px on the long side as a JPEG of quality 0.8 (`fitWithin` of `photos.js`). The photo waits in the IndexedDB store `maney.photos` (`photostore.js`) and uploads, multipart, before the receipt record that names it (SYNC-14); a failed upload keeps the receipt queued. At the first run of a start the sync removes the pending photos that nothing names and tombstones the uploaded photos of deleted or replaced receipts once, keeping their keys in `gone` (SYNC-15). A photo that the server refuses is dropped and the receipt goes with `photo: null` (SYNC-16). An uploaded photo shows online through a file token. Delete all data also clears the photo store.
