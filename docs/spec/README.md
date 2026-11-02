@@ -16,9 +16,10 @@ The names of the screen are the English ones; `src/locales/es.js` is the source 
 | [04-design-system.md](04-design-system.md) | The copy of the design system, the parts of the app and the catalogue |
 | [05-layout.md](05-layout.md) | Navigation, sections, modules, Settings and the walkthrough |
 | [06-i18n.md](06-i18n.md) | The languages and the rules of the text |
+| [07-receipts.md](07-receipts.md) | The receipts and the Receipts screen |
 | [08-account.md](08-account.md) | Google sign-in, the approval gate and the offline choice |
-| [10-todos.md](10-todos.md) | The doc of to-dos and receipts, money and dates |
-| [11-summary.md](11-summary.md) | The summary of the month that maney pushes |
+| [10-todos.md](10-todos.md) | The doc of to-dos and receipts, money, dates and the To-dos screen |
+| [11-summary.md](11-summary.md) | The summary of the month that maney pushes, and the Summary screen |
 
 ## Rule identifiers
 
@@ -37,6 +38,7 @@ The rules DS-1 to DS-8 and LAY-1 to LAY-4 belong to the design system, `pwa-desi
 | `DSV` | 04-design-system |
 | `NAV`, `MOD`, `SET`, `ONB` | 05-layout |
 | `I18N` | 06-i18n |
+| `REC` | 07-receipts |
 | `ACC` | 08-account |
 | `TODO` | 10-todos |
 | `SUM` | 11-summary |

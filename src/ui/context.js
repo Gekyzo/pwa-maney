@@ -82,12 +82,13 @@ export const stateLost = storage ? isDocLost(storage, DOC) : false;
 export const ui = {
   // The section in view.
   view: 'receipts',
-  sheetOpen: false,
-  // The to-do that the sheet edits, or null for a new to-do.
+  // The open sheet: `todo`, `receipt` or null.
+  sheet: null,
+  // The to-do or the receipt that the open sheet edits, or null for a new one.
   editing: null,
-  // The row whose side actions are open, or null.
+  // The key of the row whose side actions are open (`rowKey` of ui/rows.js), or null.
   openId: null,
-  // Where the last swipe left its row, so that the next render moves the row from there.
+  // Where the last swipe left its row, { key, x }, so that the next render moves the row from there.
   settleFrom: null,
   // The page of the walkthrough in view, or null while the walkthrough is closed.
   onboarding: firstStart ? 0 : null,

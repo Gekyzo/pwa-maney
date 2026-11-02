@@ -52,6 +52,42 @@ test('the to-do sheet has a head with its title and Close, a body, and Save in i
   assert.match(layer, /<footer class="sheet-foot"><button class="button primary wide" type="submit" data-i18n="todos.save"><\/button><\/footer>\s*<\/form>/);
 });
 
+const receiptSheet = body.match(/<div id="receipt-sheet" class="sheet-layer"[\s\S]*?<\/form>\s*<\/div>/)?.[0] ?? '';
+
+test('the receipt sheet has a date, an amount with its error line, a shop of 120 and a note of 500 characters (REC-6)', () => {
+  assert.match(receiptSheet, /<div id="receipt-veil" class="sheet-veil">/);
+  assert.match(receiptSheet, /<form id="receipt-form" class="sheet" role="dialog" aria-modal="true" aria-labelledby="receipt-sheet-title"[^>]*novalidate/);
+  assert.match(receiptSheet, /<input id="receipt-taken" class="input field-input" type="date"/);
+  const [amount = ''] = receiptSheet.match(/<input id="receipt-amount"[^>]*>/) ?? [];
+  assert.match(amount, /type="text"/);
+  assert.match(amount, /inputmode="decimal"/);
+  assert.match(amount, /aria-describedby="receipt-amount-error"/);
+  assert.match(receiptSheet, /<p id="receipt-amount-error" class="input-help danger" data-i18n="error.amountInvalid" hidden><\/p>/);
+  assert.match(receiptSheet, /<input id="receipt-shop"[^>]*maxlength="120"/);
+  assert.match(receiptSheet, /<textarea id="receipt-note"[^>]*maxlength="500"/);
+});
+
+test('the receipt sheet has a head with its title and Close, the empty photo slot, and Save in its foot (REC-6)', () => {
+  assert.match(receiptSheet, /<header class="sheet-head"><h2 id="receipt-sheet-title" class="sheet-title main"><\/h2><button id="receipt-close" class="button tonal" type="button" data-i18n="receipts.close"><\/button><\/header>\s*<div class="sheet-body">/);
+  assert.match(receiptSheet, /<figure id="receipt-photo" class="receipt-photo" hidden><img id="receipt-photo-img" class="receipt-photo-img" alt=""><button id="receipt-photo-button" class="button tonal" type="button"><\/button><\/figure>/);
+  assert.match(receiptSheet, /<footer class="sheet-foot"><button class="button primary wide" type="submit" data-i18n="receipts.save"><\/button><\/footer>\s*<\/form>/);
+});
+
+test('the Receipts section has its list and an empty state with Add receipt (REC-5)', () => {
+  const [section = ''] = body.match(/<section id="receipts"[\s\S]*?<\/section>/) ?? [];
+  assert.match(section, /<ul id="receipt-list" class="item-list"><\/ul>/);
+  assert.match(section, /<p data-i18n="receipts.empty"><\/p>\s*<button id="receipts-add" class="button primary" type="button" data-i18n="receipts.add"><\/button>/);
+});
+
+test('the Summary section has the empty text and the four counts, and no control (SUM-3)', () => {
+  const [section = ''] = body.match(/<section id="summary"[\s\S]*?<\/section>/) ?? [];
+  assert.match(section, /<p id="summary-empty" class="empty-state inline" data-i18n="summary.empty" hidden><\/p>/);
+  const counts = [...section.matchAll(/data-i18n="summary\.status\.(\w+)"/g)].map(([, name]) => name);
+  assert.deepEqual(counts, ['ok', 'review', 'missing', 'pending']);
+  for (const name of counts) assert.match(section, new RegExp(`<dd id="summary-${name}" class="summary-count-value"></dd>`), name);
+  assert.doesNotMatch(section, /<(button|input|select|textarea)\b/);
+});
+
 test('the page has one section and one navigation item for each section, in the order of SECTIONS (NAV-1)', () => {
   const items = [...body.matchAll(/<button class="nav-item" type="button" data-view="([\w-]+)">/g)].map(([, view]) => view);
   assert.deepEqual(items, SECTIONS);

@@ -16,3 +16,6 @@ export const parseEuros = (text) => {
 };
 
 export const formatCents = (cents) => euros.format(cents / 100);
+
+// Cents as typed euros, such as `1234,56`: the text of an amount field that `parseEuros` reads back.
+export const eurosInput = (cents) => `${Math.floor(cents / 100)},${String(cents % 100).padStart(2, '0')}`;

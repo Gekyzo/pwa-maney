@@ -6,8 +6,9 @@ Rules of `src/sections.js`, `src/modules.js`, `src/onboarding.js`, the views `na
 ## Size classes
 
 The size classes, the navigation element, the `pane` layout and the safe areas are the rules
-LAY-1 to LAY-4 of the design system (04-design-system). In this app the To-dos section is one
-column of rows, centred from 600px (TODO-10).
+LAY-1 to LAY-4 of the design system (04-design-system). In this app the Receipts, To-dos and
+Summary sections are one column, centred from 600px (REC-5, TODO-10, SUM-3). **+** shows on Receipts
+and To-dos, and adds a receipt or a to-do.
 
 ## Navigation
 

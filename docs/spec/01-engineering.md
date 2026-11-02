@@ -14,7 +14,7 @@
 | `src/modules.js` | The modules that Settings turns off, and the visible sections | `sections` |
 | `src/storage.js` | Load, save, validation hook, export, import, device preferences | `config`, `modules` |
 | `src/install.js` | The install offer state machine | nothing |
-| `src/money.js` | Euros as integer cents: the parse of typed euros and the de-DE display | nothing |
+| `src/money.js` | Euros as integer cents: the parse of typed euros, the text of an amount field and the de-DE display | nothing |
 | `src/todos.js` | Pure to-do operations, the real-date and real-time checks, the late rule and the to-do validation | nothing |
 | `src/receipts.js` | Pure receipt operations and the receipt validation | `todos`, `money` |
 | `src/summary.js` | The validation of the summary that maney pushes | `todos` |
@@ -28,7 +28,10 @@
 | `src/ui/update.js` | The version line, the check, the refresh and the update toast | `version`, `i18n`, `ui/context` |
 | `src/ui/install.js` | The Install button | `install`, `ui/context` |
 | `src/ui/nav.js` | The navigation, the change and the slide of a section | `sections`, `modules`, `ui/context`, `ui/update`, `ui/dust` |
-| `src/ui/todos.js` | The To-dos section, its rows and its sheet (TODO-10) | `todos`, `i18n`, `ds/sheet`, `swipe`, `ui/context`, `ui/controls` |
+| `src/ui/rows.js` | The rows that slide left to show their side actions, and the close of an open row | `swipe`, `ui/context` |
+| `src/ui/todos.js` | The To-dos section, its rows and its sheet (TODO-10) | `todos`, `i18n`, `ds/sheet`, `ui/context`, `ui/controls`, `ui/rows` |
+| `src/ui/receipts.js` | The Receipts section, its rows and its sheet (REC-5, REC-6) | `receipts`, `money`, `todos`, `i18n`, `ds/sheet`, `ui/context`, `ui/controls`, `ui/rows` |
+| `src/ui/summary.js` | The Summary section, read only (SUM-3) | `money`, `i18n`, `ui/context` |
 | `src/ui/settings.js` | Settings, Delete all data (SET-2), and the text of the page in its language | `doc`, `storage`, `i18n`, `modules`, `ui/context`, `ui/update`, `ui/onboarding`, `ui/account` |
 | `src/ui/dust.js` | The dust of a navigation item (optional) | `particles`, `ui/context`, `ui/controls` |
 | `src/ui/onboarding.js` | The walkthrough (optional) | `onboarding`, `sections`, `storage`, `ui/context`, `ui/controls` |
@@ -90,11 +93,11 @@ The doc key is `maney.doc` ([10-todos.md](10-todos.md)). The device preferences 
 
 | Test file | Covers |
 |---|---|
-| `tests/money.test.js` | Typed euros to cents and the display of cents (TODO-1) |
+| `tests/money.test.js` | Typed euros to cents, the text of an amount field and the display of cents (TODO-4, REC-6) |
 | `tests/todos.test.js` | The to-do operations, their order, the late rule and their validation (TODO-1, TODO-3, TODO-5, TODO-6, TODO-10) |
-| `tests/receipts.test.js` | The receipt operations, their order and their validation (TODO-6 to TODO-8) |
+| `tests/receipts.test.js` | The receipt operations, their order and their validation (REC-2 to REC-4) |
 | `tests/summary.test.js` | The validation of the summary (SUM-1, SUM-2) |
-| `tests/doc.test.js` | The doc, its key and its validation (TODO-1, TODO-9) |
+| `tests/doc.test.js` | The doc, its key and its validation (TODO-1, TODO-2, REC-1) |
 | `tests/pocketbase.test.js` | The client of the account server and its URL (ACC-3, ACC-4, ACC-6) |
 | `tests/session.test.js` | The session, the start route, the offline flag, the pending sign-in and the return URL (ACC-1, ACC-4, ACC-5, ACC-10) |
 | `tests/storage.test.js` | Load, save, the corrupt copy, the lost doc, export, import and the device preferences |
@@ -109,7 +112,7 @@ The doc key is `maney.doc` ([10-todos.md](10-todos.md)). The device preferences 
 | `tests/whatsnew.test.js` | The parse of the release notes and the unseen versions |
 | `tests/release-notes-files.test.js` | One release-notes file for each language, with the same versions (VER-19) |
 | `tests/i18n.test.js` | The language choice, the translator, the parity of the catalogs |
-| `tests/markup.test.js` | `index.html` holds no text of its own; the sections, the module switches, the to-do sheet, the walkthrough and the account markup |
+| `tests/markup.test.js` | `index.html` holds no text of its own; the sections, the module switches, the to-do sheet, the Receipts section and the receipt sheet, the Summary section, the walkthrough and the account markup |
 | `tests/aliases.test.js` | The import map against `package.json`; each `#ds/` alias names a vendored module |
 | `tests/layers.test.js` | The layer rules and `SHELL` (ENG-16) |
 | `tests/design.test.js` | Each rule of `vendor/design-system/rules.js` over the two stylesheets, `index.html`, `icons.svg`, `src/ui/` and `designs/`, and the parts of `styles.css` (DSV-3) |

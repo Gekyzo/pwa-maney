@@ -26,7 +26,13 @@
     </div>
 
     <main>
-      <section id="receipts" hidden></section>
+      <section id="receipts" class="receipts" hidden>
+        <ul id="receipt-list" class="item-list"></ul>
+        <div id="receipts-empty" class="empty-state" hidden>
+          <p data-i18n="receipts.empty"></p>
+          <button id="receipts-add" class="button primary" type="button" data-i18n="receipts.add"></button>
+        </div>
+      </section>
 
       <section id="todos" class="todos" hidden>
         <ul id="todo-list" class="item-list"></ul>
@@ -36,7 +42,27 @@
         </div>
       </section>
 
-      <section id="summary" hidden></section>
+      <section id="summary" class="summary" hidden>
+        <p id="summary-empty" class="empty-state inline" data-i18n="summary.empty" hidden></p>
+        <div id="summary-body" hidden>
+          <h2 id="summary-month" class="summary-month"></h2>
+          <p id="summary-updated" class="summary-updated"></p>
+          <dl class="summary-counts">
+            <div class="summary-count"><dt class="summary-count-label" data-i18n="summary.status.ok"></dt><dd id="summary-ok" class="summary-count-value"></dd></div>
+            <div class="summary-count"><dt class="summary-count-label" data-i18n="summary.status.review"></dt><dd id="summary-review" class="summary-count-value"></dd></div>
+            <div class="summary-count"><dt class="summary-count-label" data-i18n="summary.status.missing"></dt><dd id="summary-missing" class="summary-count-value"></dd></div>
+            <div class="summary-count"><dt class="summary-count-label" data-i18n="summary.status.pending"></dt><dd id="summary-pending" class="summary-count-value"></dd></div>
+          </dl>
+          <div id="summary-next-group" hidden>
+            <h2 class="list-group-head" data-i18n="summary.nextDue"></h2>
+            <ul id="summary-next" class="summary-lines"></ul>
+          </div>
+          <div id="summary-investments-group" hidden>
+            <h2 class="list-group-head" data-i18n="summary.investments"></h2>
+            <ul id="summary-investments" class="summary-lines"></ul>
+          </div>
+        </div>
+      </section>
 
       <section id="settings" class="settings" hidden>
         <div id="account-group" hidden>
@@ -98,7 +124,7 @@
       </section>
     </main>
 
-    <button id="fab" class="fab" type="button" data-i18n-attr="aria-label:todos.add">+</button>
+    <button id="fab" class="fab" type="button">+</button>
 
     <nav class="nav-bar" data-i18n-attr="aria-label:nav.label">
       <button class="nav-item" type="button" data-view="receipts">
@@ -138,6 +164,23 @@
           <label class="field"><input id="todo-due" class="input field-input" type="date"><span class="field-label" data-i18n="todos.due"></span></label>
         </div>
         <footer class="sheet-foot"><button class="button primary wide" type="submit" data-i18n="todos.save"></button></footer>
+      </form>
+    </div>
+
+    <div id="receipt-sheet" class="sheet-layer" hidden>
+      <div id="receipt-veil" class="sheet-veil"></div>
+      <form id="receipt-form" class="sheet" role="dialog" aria-modal="true" aria-labelledby="receipt-sheet-title" autocomplete="off" novalidate>
+        <div class="sheet-grab"></div>
+        <header class="sheet-head"><h2 id="receipt-sheet-title" class="sheet-title main"></h2><button id="receipt-close" class="button tonal" type="button" data-i18n="receipts.close"></button></header>
+        <div class="sheet-body">
+          <figure id="receipt-photo" class="receipt-photo" hidden><img id="receipt-photo-img" class="receipt-photo-img" alt=""><button id="receipt-photo-button" class="button tonal" type="button"></button></figure>
+          <label class="field"><input id="receipt-taken" class="input field-input" type="date" required><span class="field-label" data-i18n="receipts.takenOn"></span></label>
+          <label class="field"><input id="receipt-amount" class="input field-input" type="text" inputmode="decimal" required aria-describedby="receipt-amount-error" data-i18n-attr="placeholder:receipts.amount"><span class="field-label" data-i18n="receipts.amount"></span></label>
+          <p id="receipt-amount-error" class="input-help danger" data-i18n="error.amountInvalid" hidden></p>
+          <label class="field"><input id="receipt-shop" class="input field-input" type="text" maxlength="120" data-i18n-attr="placeholder:receipts.shop"><span class="field-label" data-i18n="receipts.shop"></span></label>
+          <label class="field"><textarea id="receipt-note" class="input field-input" maxlength="500" rows="3" data-i18n-attr="placeholder:receipts.note"></textarea><span class="field-label" data-i18n="receipts.note"></span></label>
+        </div>
+        <footer class="sheet-foot"><button class="button primary wide" type="submit" data-i18n="receipts.save"></button></footer>
       </form>
     </div>
 
@@ -217,7 +260,10 @@
           "#ui/install": "./src/ui/install.js",
           "#ui/motion": "./src/ui/motion.js",
           "#ui/nav": "./src/ui/nav.js",
+          "#ui/rows": "./src/ui/rows.js",
           "#ui/todos": "./src/ui/todos.js",
+          "#ui/receipts": "./src/ui/receipts.js",
+          "#ui/summary": "./src/ui/summary.js",
           "#ui/settings": "./src/ui/settings.js",
           "#swipe": "./src/swipe.js",
           "#particles": "./src/particles.js",

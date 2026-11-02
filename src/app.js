@@ -1,6 +1,9 @@
 import { $, ui, storage, t, setRender, showToast, hideToast, toastAction, clickGuardUntil } from '#ui/context';
 import { bind as bindNav, renderNav } from '#ui/nav';
-import { bind as bindTodos, renderTodos, closeTodoSheet } from '#ui/todos';
+import { bind as bindRows, closeOpenRow } from '#ui/rows';
+import { bind as bindTodos, renderTodos, openTodoSheet, closeTodoSheet } from '#ui/todos';
+import { bind as bindReceipts, renderReceipts, openReceiptSheet, closeReceiptSheet } from '#ui/receipts';
+import { bind as bindSummary, renderSummary } from '#ui/summary';
 import { bind as bindSettings, applyLanguage } from '#ui/settings';
 import { bind as bindInstall, renderInstall } from '#ui/install';
 import { readVersion, renderVersion, offerUpdate } from '#ui/update';
@@ -16,9 +19,16 @@ if (oauth) history.replaceState(history.state, '', clean);
 const renderAll = () => {
   renderNav();
   $('title').textContent = t(`nav.${ui.view}`);
-  // Receipts and Summary are empty sections until their views come.
-  for (const view of ['receipts', 'summary', 'settings']) $(view).hidden = ui.view !== view;
+  $('settings').hidden = ui.view !== 'settings';
+  renderReceipts();
   renderTodos();
+  renderSummary();
+  // A list of rows owns + to add one; the button hides while a sheet is open.
+  const adds = ui.view === 'receipts' || ui.view === 'todos';
+  $('fab').hidden = !adds || ui.sheet !== null;
+  if (adds) $('fab').setAttribute('aria-label', t(`${ui.view}.add`));
+  // The slide of a row is shown once: a later render puts the row in place at once.
+  ui.settleFrom = null;
   renderVersion();
   renderInstall();
   renderAccount();
@@ -26,7 +36,11 @@ const renderAll = () => {
 setRender(renderAll);
 
 bindNav();
+bindRows();
 bindTodos();
+bindReceipts();
+bindSummary();
+$('fab').addEventListener('click', () => (ui.view === 'receipts' ? openReceiptSheet() : openTodoSheet()));
 bindSettings();
 bindInstall();
 bindOnboarding();
@@ -60,7 +74,10 @@ document.addEventListener('keydown', (event) => {
     closeWhatsNew();
     return;
   }
-  if (ui.sheetOpen) closeTodoSheet();
+  // The open sheet closes first, else the open row.
+  if (ui.sheet === 'todo') closeTodoSheet();
+  else if (ui.sheet === 'receipt') closeReceiptSheet();
+  else closeOpenRow();
 });
 
 $('toast-action').addEventListener('click', () => {

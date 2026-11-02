@@ -10,8 +10,9 @@ The phone companion of maney: receipts with a photo, to-dos and the month summar
 - a release script and a GitHub Pages deploy on a version tag;
 - structural tests that keep the layers, the text, the design system and the specification in step.
 
-The sections are Receipts, To-dos, Summary and Settings. The To-dos screen lists the to-dos with an
-optional due date; Receipts and Summary come next.
+The sections are Receipts, To-dos, Summary and Settings. Receipts lists the receipts with their
+date, shop and amount; To-dos lists the to-dos with an optional due date; Summary shows the month
+that maney sends, read only. The receipt photo comes next.
 
 ## Develop
 

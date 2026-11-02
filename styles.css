@@ -145,6 +145,155 @@
     color: var(--danger);
   }
 
+  /* @component receipts
+     @scope receipts
+     @summary The Receipts section: one centred column of receipt rows (item-row): the shop, the date below it and the amount at the end. The receipt sheet holds the photo slot.
+     @part receipts-amount   The amount at the end of a row, in figures of one width.
+     @part receipts-noshop   On item-row-label: the muted name of a receipt with no shop.
+     @part receipt-photo     The photo slot of the receipt sheet: the picture and its button.
+     @part receipt-photo-img The picture of the photo slot.
+     @example <section class="receipts" style="width: 100%"><ul class="item-list"><li class="item-row"><div class="item-row-body"><button class="item-row-name" type="button"><span class="item-row-label">Mercadona</span><small class="item-row-meta">2 nov 2026</small></button><span class="receipts-amount">12,50 €</span></div></li><li class="item-row"><div class="item-row-body"><button class="item-row-name" type="button"><span class="item-row-label receipts-noshop">No shop</span><small class="item-row-meta">1 nov 2026</small></button><span class="receipts-amount">3,20 €</span></div></li></ul></section> */
+  .receipts {
+    width: 100%;
+    max-width: var(--content-max);
+    margin-inline: auto;
+  }
+
+  .receipts-amount {
+    flex: none;
+    padding-left: var(--space-2);
+    font-weight: var(--weight-medium);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .receipts-noshop {
+    color: var(--muted);
+  }
+
+  .receipt-photo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+  }
+
+  .receipt-photo-img {
+    max-width: 100%;
+    border-radius: var(--radius-l);
+  }
+
+  /* @component summary
+     @scope summary
+     @summary The Summary section, read only: the month, when maney sent it, four counts, then the next movements and the investments as lines. One centred column; the counts are two by two, and four in one row from 600px.
+     @part summary-month        The month of the summary, the title of the section.
+     @part summary-updated      The muted line of when maney sent it.
+     @part summary-counts       The box of the four counts.
+     @part summary-count        One count: its name above its number.
+     @part summary-count-label  The name of a count.
+     @part summary-count-value  The number of a count.
+     @part summary-lines        The box of the lines of a group, on --surface.
+     @part summary-line         A line: its text and its muted line, and the amount at the end.
+     @part summary-line-text    The text of a line and its muted line below.
+     @part summary-line-label   The text of a line.
+     @part summary-line-meta    The muted line: the date, and the state or the provider.
+     @part summary-line-amount  The amount at the end of a line, with its sign.
+     @state late                data-state="late" on a line of the next movements: its muted line in the colour of danger.
+     @example <section class="summary" style="width: 100%"><h2 class="summary-month">November 2026</h2><p class="summary-updated">Updated on 2 November 2026</p><dl class="summary-counts"><div class="summary-count"><dt class="summary-count-label">OK</dt><dd class="summary-count-value">12</dd></div><div class="summary-count"><dt class="summary-count-label">To review</dt><dd class="summary-count-value">2</dd></div><div class="summary-count"><dt class="summary-count-label">Missing</dt><dd class="summary-count-value">1</dd></div><div class="summary-count"><dt class="summary-count-label">Pending</dt><dd class="summary-count-value">3</dd></div></dl><h2 class="list-group-head">Next movements</h2><ul class="summary-lines"><li class="summary-line" data-state="late"><span class="summary-line-text"><span class="summary-line-label">Rent</span><small class="summary-line-meta">1 Nov 2026 · late</small></span><span class="summary-line-amount">-450,00 €</span></li></ul></section> */
+  .summary {
+    width: 100%;
+    max-width: var(--content-max);
+    margin-inline: auto;
+    padding: 0 var(--space-4) var(--space-6);
+  }
+
+  .summary-month {
+    margin: var(--space-4) 0 0;
+    font-size: var(--text-l);
+    font-weight: var(--weight-medium);
+  }
+
+  .summary-updated {
+    margin: var(--space-1) 0 0;
+    color: var(--muted);
+    font-size: var(--text-s);
+  }
+
+  .summary-counts {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+    margin: var(--space-4) 0 0;
+  }
+
+  @media (min-width: 600px) {
+    .summary-counts {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .summary-count {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-l);
+    background: var(--surface);
+  }
+
+  .summary-count-label {
+    color: var(--muted);
+    font-size: var(--text-label);
+  }
+
+  .summary-count-value {
+    margin: 0;
+    font-size: var(--text-l);
+    font-weight: var(--weight-medium);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .summary-lines {
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-l);
+    background: var(--surface);
+    list-style: none;
+  }
+
+  .summary-line {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--tap-l);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .summary-line + .summary-line {
+    border-top: 1px solid var(--line);
+  }
+
+  .summary-line-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .summary-line-meta {
+    color: var(--muted);
+    font-size: var(--text-s);
+  }
+
+  .summary-lines > [data-state="late"] .summary-line-meta {
+    color: var(--danger);
+  }
+
+  .summary-line-amount {
+    flex: none;
+    font-weight: var(--weight-medium);
+    font-variant-numeric: tabular-nums;
+  }
+
   /* @component whatsnew
      @scope whatsnew
      @summary The release notes in a sheet: one block for each version, newest first.
