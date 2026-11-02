@@ -41,7 +41,7 @@ and To-dos, and adds a receipt or a to-do.
   chevron. Modules keeps its switches.
 - **SET-2** **Delete all data** is the last row of Backup, in the colour of danger, with no
   chevron. It asks `reset.confirm`, or `reset.confirmLocal` with a session, which also says that
-  the session closes. A yes removes each `localStorage` key of the app, `<slug>.*` (`resetAll`),
+  the session closes. Both say that a backup holds no photo that waits for its upload (SYNC-16). A yes removes each `localStorage` key of the app, `<slug>.*` (`resetAll`),
   and no key of another app of the origin, then loads the page again: the app starts as a new
   install, with the walkthrough (ONB-1), and a device that had a session opens Sign in (ACC-1). It
   has no Undo. When the removal fails, `error.resetFailed` shows and nothing else changes. The

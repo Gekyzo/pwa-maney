@@ -130,11 +130,14 @@ runs the sync; it takes the client, the storage, the clock and the timer as para
   receipt stays in the queue and the photo in the store, and the next run uploads, then pushes. An
   auth stop keeps both until the login. A request with no owner fails with an auth error and sends
   nothing.
-- **SYNC-15** At the first run of each start with a session, once, before the token refresh:
-  - the pending photos that no receipt of the doc and no queued receipt upsert names leave the
-    store (`orphanPhotos`), with no request: a receipt deleted before its photo uploaded sends no
-    file;
-  - the photos to tombstone are found (`gonePhotos`): the photos of the receipt tombstones of the
+- **SYNC-15** Each start sweeps the photos once:
+  - when the driver starts, before a save of the user, with or without a session and with no
+    request, the pending photos that no receipt of the doc and no queued receipt upsert names
+    leave the store (`orphanPhotos`). The doc and the queue are the ones of the start, so a receipt
+    that a delete and its **Undo** take out and bring back in this start keeps its photo. A receipt
+    deleted before its photo uploaded sends no file. A run waits for this step;
+  - at the first run with a session, before the token refresh, the photos to tombstone are found
+    (`gonePhotos`): the photos of the receipt tombstones of the
     server copy, and the photos that a pushed receipt of an earlier start no longer names
     (`dropped` in `maney.sync`, a replaced photo), less those that a receipt of the doc names and
     those in `gone`. After the push of the queue, the run patches each of them with
@@ -143,15 +146,24 @@ runs the sync; it takes the client, the storage, the clock and the timer as para
     `maney.sync`, so a later start sends nothing for it. A receipt that names it again is left
     alone. A failure stops the run as a failed push does.
 
-  The sweep runs only once per start because an **Undo** of a delete (5 s, in memory) can bring a
-  receipt back within the same start; a photo of a receipt deleted in this start waits for the
-  next start.
+  The sweep runs only once per start, at its beginning, because an **Undo** of a delete (5 s, in
+  memory) can bring a receipt back within the same start; a photo of a receipt deleted in this
+  start waits for the next start.
 - **SYNC-16** A photo that the server refuses with field errors (a 400 with field errors, such as
   a wrong type or a size above 10 MB) is logged and forgotten before its receipt is pushed: the
   queued change, the base and the doc take `photo: null` and are saved, and only then the photo
   leaves the store. So a push that fails after this sends `photo: null` at the next run, with no
   file call, and never a key with no file. A photo that uploaded and whose push then failed is not
   uploaded again: the next run pushes the receipt only.
+
+  A receipt upsert that names a photo with no file in the store (an import of a backup, a store
+  in memory lost at a reload, a store that a logout, a login of another user or Delete all data
+  cleared) goes as it is when the server copy of the receipt names that photo. Else the run finds
+  the file by owner and key: a found file (an upload whose push failed) keeps the name, with no
+  upload. With no file the photo is logged and forgotten as a refused photo is, so the receipt
+  never names a file that the server lacks. A failed find stops the run as a failed push does. A
+  backup holds no pending photo: `reset.confirm`, `reset.confirmLocal`, `account.exportAsk` and
+  `account.logoutExport` say so.
 
 ## Status
 

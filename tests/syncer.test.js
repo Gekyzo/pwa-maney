@@ -57,6 +57,7 @@ const fakeClient = (server) => {
   const client = {
     calls,
     order: [],
+    finds: [],
     pushed: [],
     bases: [],
     pushes: 0,
@@ -116,6 +117,12 @@ const fakeClient = (server) => {
       }
       Object.assign(file, { photo: `${key}.jpg`, blob, deleted: false });
       return { id: file.id, key, photo: file.photo };
+    },
+    // A file of the owner by key, tombstone or not, or null (SYNC-14).
+    findPhoto: async (token, key, owner) => {
+      client.finds.push(key);
+      const file = server.files.find((f) => f.owner === owner && f.key === key);
+      return file ? { id: file.id, key, photo: file.photo, deleted: file.deleted === true } : null;
     },
     deletePhoto: async (token, key, owner) => {
       client.order.push(`deletePhoto:${key}`);
@@ -1009,10 +1016,13 @@ test('the summary pulled from the server goes into the doc and is never queued',
   const d = device({ server });
   assert.equal(await d.syncer.run(), 'ok');
   assert.deepEqual(d.box.doc.summary, SUMMARY);
-  d.save({ ...d.box.doc, summary: null });
-  d.save(docOf(todo('a')));
-  assert.deepEqual(storedQueue(d.storage).map(({ kind }) => kind), ['todo']);
-  assert.equal(await d.syncer.run(), 'ok');
+  // The SYNC-2 guard logs these saves: they hold none of the records of the account.
+  await quiet(async () => {
+    d.save({ ...d.box.doc, summary: null });
+    d.save(docOf(todo('a')));
+    assert.deepEqual(storedQueue(d.storage).map(({ kind }) => kind), ['todo']);
+    assert.equal(await d.syncer.run(), 'ok');
+  });
   assert.ok(d.client.pushed.every(({ kind }) => kind !== 'summary'));
   assert.deepEqual(d.box.doc.summary, SUMMARY);
 });
@@ -1275,4 +1285,68 @@ test('an uploaded photo followed by a failed push sends the receipt at the next 
   assert.equal(d.server.rows[0].data.photo, 'p1');
   assert.equal(d.server.files.length, 1);
   assert.deepEqual(storedQueue(d.storage), []);
+});
+
+test('a receipt deleted before the first run of a start keeps its pending photo for the Undo, and online the photo uploads first (SYNC-15)', async () => {
+  const first = device();
+  offlineNow(first);
+  await saveWithPhoto(first, receiptDoc(receiptOf('r1', 'p1')), 'p1');
+  // A new start, offline, with no run yet: the first save of the user starts the first run.
+  const d = device({ server: first.server, storage: first.storage, photos: first.photos, doc: first.box.doc });
+  offlineNow(d);
+  d.save(receiptDoc());
+  assert.equal(await d.live().at(-1).fn(), 'offline');
+  // Undo within 5 s puts the receipt back.
+  d.save(receiptDoc(receiptOf('r1', 'p1')));
+  assert.deepEqual(await d.photos.keys(), ['p1']);
+  onlineNow(d);
+  assert.equal(await d.syncer.online(), 'ok');
+  assert.deepEqual(d.client.order, ['uploadPhoto:p1', 'push:receipt:r1']);
+  assert.equal(d.server.rows[0].data.photo, 'p1');
+  assert.equal(d.server.files[0].key, 'p1');
+});
+
+test('the start removes the pending photos that nothing names, with no session (SYNC-15)', async () => {
+  const photos = fakePhotos();
+  await photos.put('p9', jpegOf('p9'));
+  const d = device({ storage: fakeStorage(), photos });
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.deepEqual(await d.photos.keys(), []);
+  assert.deepEqual(d.client.order, []);
+});
+
+test('a receipt that names a photo with no pending file and no server file goes with photo null (SYNC-16)', async () => {
+  const d = device();
+  // A backup import, or a photo store lost at a reload: the receipt names a photo the device lacks.
+  d.save(receiptDoc(receiptOf('r1', 'p1')));
+  assert.equal(await quiet(() => d.syncer.run()), 'ok');
+  assert.deepEqual(d.client.finds, ['p1']);
+  assert.ok(!d.client.order.some((call) => call.startsWith('uploadPhoto')));
+  assert.equal(d.client.pushed[0].data.photo, null);
+  assert.equal(d.server.rows[0].data.photo, null);
+  assert.equal(d.box.doc.receipts[0].photo, null);
+  assert.deepEqual(storedQueue(d.storage), []);
+});
+
+test('a receipt that names a photo with no pending file goes as it is when the server holds the file (SYNC-14)', async () => {
+  const server = fakeServer();
+  server.files.push({ id: 'f1', owner: 'u1', key: 'p1', photo: 'p1.jpg', deleted: false });
+  const d = device({ server });
+  d.save(receiptDoc(receiptOf('r1', 'p1')));
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.deepEqual(d.client.order, ['push:receipt:r1']);
+  assert.equal(d.server.rows[0].data.photo, 'p1');
+  assert.equal(d.box.doc.receipts[0].photo, 'p1');
+});
+
+test('an edit of a receipt whose photo the server copy names makes no file call (SYNC-14)', async () => {
+  const server = fakeServer();
+  server.add('u1', receiptOf('r1', 'p1'), 'receipt');
+  const d = device({ server });
+  assert.equal(await d.syncer.run(), 'ok');
+  d.save(receiptDoc({ ...receiptOf('r1', 'p1'), note: 'Lunch' }));
+  assert.equal(await d.syncer.run(), 'ok');
+  assert.deepEqual(d.client.finds, []);
+  assert.deepEqual(d.client.order, ['push:receipt:r1']);
+  assert.equal(d.server.rows[0].data.photo, 'p1');
 });

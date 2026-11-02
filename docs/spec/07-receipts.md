@@ -52,7 +52,8 @@ and `src/ui/receipts.js`; the photos are `src/photos.js`, `src/photostore.js` an
   then saves the receipt with `photo` set to the new key, `crypto.randomUUID()`. A store that
   fails shows `error.notSaved` and saves nothing; a save that the checks refuse removes the photo
   from the store. With no IndexedDB the store lives in memory for this start. The photo leaves the
-  store when the server took it (SYNC-14), or at the sweep of a start (SYNC-15).
+  store when the server took it (SYNC-14), or at the sweep of a start (SYNC-15). An export
+  holds no pending photo (SYNC-16).
 - **REC-9** A photo of the store shows from the device, through an object URL that the sheet
   revokes when it closes, with `receipts.photoPending`. An uploaded photo shows online only: the
   app finds its `maney_files` record and reads the bytes through a file token

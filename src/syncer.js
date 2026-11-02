@@ -179,11 +179,22 @@ export const createSyncer = ({
   // SYNC-11: counts the runs after which the server had answered (ok, a rate limit, an auth error).
   let reached = 0;
   let stream = null;
-  // SYNC-15: the sweep runs at the first run of a start that has a session, once: an Undo of a
-  // delete (5 s, in memory) can bring a receipt back within the same start. `sweep` holds the
-  // photos to tombstone, found then.
+  // SYNC-15: the photos to tombstone are found at the first run of a start that has a session, once:
+  // an Undo of a delete (5 s, in memory) can bring a receipt back within the same start. `sweep`
+  // holds them.
   let swept = false;
   let sweep = [];
+
+  // SYNC-15: at the start, before a save of the user can delete a receipt, the pending photos that
+  // no receipt of the doc and no queued receipt upsert names leave the store, with no session and
+  // no request. The doc and the queue are taken now, so a receipt that a delete and its Undo take
+  // out and bring back keeps its photo. A run waits for it.
+  const orphansSwept = (async () => {
+    const doc = getDoc();
+    const queued = queue;
+    const keys = await photos.keys();
+    for (const key of orphanPhotos(keys, doc, queued)) await photos.remove(key);
+  })().catch((error) => console.error('sync: the pending photos could not be swept', error));
 
   const persist = () => {
     try {
@@ -290,11 +301,29 @@ export const createSyncer = ({
     return forgotten;
   };
 
+  // SYNC-16: a photo with no pending file (a backup import, a store in memory lost at a reload, a
+  // cleared store) goes as it is when the server copy of the receipt names it, or when the server
+  // holds its file (an upload whose push failed). Else it is forgotten as a refused photo is, so the
+  // receipt never names a file that the server lacks. A failed find stops the run as a failed push.
+  const missingPhoto = async (token, change, key, live) => {
+    if (sync.server.get(recordKey(change.kind, change.key))?.data?.photo === key) return { change };
+    let found;
+    try {
+      found = await client.findPhoto(token, key, sync.owner);
+    } catch (error) {
+      return { stop: live() ? stopOf(known(error)) : STALE };
+    }
+    if (!live()) return { stop: STALE };
+    if (found) return { change };
+    console.error('sync: no file of the photo, so the receipt goes without it', key);
+    return { change: forget(change, key) };
+  };
+
   const withPhoto = async (token, change, live) => {
     const key = change.kind === 'receipt' && change.op === 'upsert' ? change.data?.photo : null;
     if (!key) return { change };
     const blob = await photos.get(key);
-    if (!blob) return { change };
+    if (!blob) return missingPhoto(token, change, key, live);
     let sent = change;
     try {
       await client.uploadPhoto(token, { key, blob }, sync.owner);
@@ -367,15 +396,12 @@ export const createSyncer = ({
     sync = { ...sync, server: merged.server, local: nextRecords, cursor: cursorOf(pulled, sync.cursor), added: [] };
   };
 
-  // SYNC-15: at the first run of a start, the pending photos that nothing names leave the store, and
-  // the photos to tombstone are found. Both work on the device only, so they run offline too.
-  const sweepStart = async () => {
+  // SYNC-15: at the first run of a start with a session, the photos to tombstone are found. It works
+  // on the device only, so it runs offline too.
+  const sweepStart = () => {
     if (swept) return;
     swept = true;
-    const keys = await photos.keys();
-    const doc = getDoc();
-    for (const key of orphanPhotos(keys, doc, queue)) await photos.remove(key);
-    sweep = gonePhotos(sync.server, doc, sync.gone, sync.dropped);
+    sweep = gonePhotos(sync.server, getDoc(), sync.gone, sync.dropped);
   };
 
   // SYNC-15: each photo of the sweep gets its tombstone once, and goes into `gone`. A photo that a
@@ -398,13 +424,14 @@ export const createSyncer = ({
   };
 
   const syncOnce = async (live) => {
+    await orphansSwept;
+    if (!live()) return STALE;
     const session = activeSession();
     if (!session) return 'ok';
     // SYNC-2: a save that notify did not queue (no session yet, an auth stop) is queued now, so that
     // the merge cannot overwrite it.
     noted(getDoc(), false);
-    await sweepStart();
-    if (!live()) return STALE;
+    sweepStart();
     const { token, stop } = await freshToken(session, live);
     if (stop) return stop;
     const stopped = (await pushAll(token, live)) ?? (await tombstoneAll(token, live));

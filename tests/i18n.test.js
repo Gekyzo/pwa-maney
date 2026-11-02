@@ -117,3 +117,10 @@ test('the Spanish catalog has each message key of the pure modules', () => {
 test('intlTag gives the code of each language that has no regional tag', () => {
   for (const lang of LANGUAGES) assert.equal(intlTag(lang), lang);
 });
+
+test('each question that offers a backup says that it holds no pending photo (SYNC-16)', () => {
+  const said = { es: 'la copia no lleva las fotos que esperan para subirse', en: 'the backup does not hold the photos that wait for their upload' };
+  for (const key of ['reset.confirm', 'reset.confirmLocal', 'account.exportAsk', 'account.logoutExport']) {
+    for (const lang of ['es', 'en']) assert.ok(CATALOGS[lang][key].toLowerCase().includes(said[lang]), `${lang} ${key}`);
+  }
+});
